@@ -6,21 +6,15 @@ import { useRouter } from 'next/navigation';
 import { 
   Plus, 
   Search, 
-  Filter, 
   Eye, 
-  Edit, 
   Copy, 
-  Printer, 
   CheckCircle, 
   XCircle, 
-  ArrowRight,
-  FileText,
   Clock,
-  ChevronDown,
   Download
 } from 'lucide-react';
 import { useCrm } from '../../context/CrmContext';
-import { Quotation, QuotationStatus } from '../../types/crm';
+import { Quotation } from '../../types/crm';
 import { formatINR, formatDate } from '../../lib/formatters';
 import { isDateInRange } from '../../lib/financialCalculations';
 import { Badge } from '../../components/ui/Badge';

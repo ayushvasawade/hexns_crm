@@ -2,21 +2,10 @@
 
 import React, { useState, useMemo } from 'react';
 import { 
-  BarChart3, 
-  TrendingUp, 
-  DollarSign, 
   ShieldAlert, 
   Download, 
-  Calendar,
-  Layers,
-  Users,
-  PieChart,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
   FileSpreadsheet,
-  FileText,
-  RotateCcw
+  FileText
 } from 'lucide-react';
 import { useCrm } from '../../context/CrmContext';
 import { formatINR, formatDate } from '../../lib/formatters';
