@@ -1,0 +1,12 @@
+{
+  "name": "hexns-crm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "HEXNS Mediaworks Billing & Quotation Monorepo",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "lint": "npm --prefix frontend run lint"
+  }
+}

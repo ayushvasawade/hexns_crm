@@ -1,0 +1,21 @@
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+*.env
+
+# Python / Virtual Environment
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
