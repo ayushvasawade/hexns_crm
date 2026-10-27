@@ -45,22 +45,26 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   // Related payments
   const invoicePayments = payments.filter(p => p.invoiceId === invoice.id);
 
-  const handleRecordPayment = (e: React.FormEvent) => {
+  const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     const amt = parseFloat(payAmount);
     if (isNaN(amt) || amt <= 0) return;
 
-    recordPayment({
-      clientId: invoice.clientId,
-      invoiceId: invoice.id,
-      amount: amt,
-      paymentDate: payDate,
-      paymentMode: payMode,
-      transactionReference: payRef || `UTR-${Date.now().toString().slice(-6)}`,
-      internalNotes: "Settlement logged from Invoice Detail screen."
-    });
+    try {
+      await recordPayment({
+        clientId: invoice.clientId,
+        invoiceId: invoice.id,
+        amount: amt,
+        paymentDate: payDate,
+        paymentMode: payMode,
+        transactionReference: payRef || `UTR-${Date.now().toString().slice(-6)}`,
+        internalNotes: "Settlement logged from Invoice Detail screen."
+      });
 
-    setShowPayModal(false);
+      setShowPayModal(false);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to record payment');
+    }
   };
 
   return (

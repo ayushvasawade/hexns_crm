@@ -103,47 +103,59 @@ export default function PackagesPage() {
     setItems(prev => prev.filter((_, idx) => idx !== index));
   };
 
-  const handleSavePackage = (e: React.FormEvent) => {
+  const handleSavePackage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || items.length === 0) return;
 
-    if (editingPackageId) {
-      updatePackage(editingPackageId, {
-        name,
-        description,
-        items,
-        standardPrice,
-        packageDiscount,
-        finalPrice,
-        gstRate: 18,
-        presentationMode
-      });
-    } else {
-      addPackage({
-        name,
-        description,
-        items,
-        standardPrice,
-        packageDiscount,
-        finalPrice,
-        gstRate: 18,
-        presentationMode,
-        status: 'Active'
-      });
+    try {
+      if (editingPackageId) {
+        await updatePackage(editingPackageId, {
+          name,
+          description,
+          items,
+          standardPrice,
+          packageDiscount,
+          finalPrice,
+          gstRate: 18,
+          presentationMode
+        });
+      } else {
+        await addPackage({
+          name,
+          description,
+          items,
+          standardPrice,
+          packageDiscount,
+          finalPrice,
+          gstRate: 18,
+          presentationMode,
+          status: 'Active'
+        });
+      }
+
+      setIsAddModalOpen(false);
+      setEditingPackageId(null);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to save package');
     }
-
-    setIsAddModalOpen(false);
-    setEditingPackageId(null);
   };
 
-  const handleDuplicate = (pkg: Package) => {
-    duplicatePackage(pkg.id);
+  const handleDuplicate = async (pkg: Package) => {
+    try {
+      await duplicatePackage(pkg.id);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to duplicate package');
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteConfirmPkg) return;
-    deletePackage(deleteConfirmPkg.id);
-    setDeleteConfirmPkg(null);
+    try {
+      await deletePackage(deleteConfirmPkg.id);
+      setDeleteConfirmPkg(null);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to delete package');
+    }
   };
 
   const handleExportCSV = () => {

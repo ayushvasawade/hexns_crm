@@ -130,37 +130,41 @@ export default function QuotationBuilderPage() {
   }, [clients, clientSearchTerm]);
 
   // 1-Click Quick Add & Append Client from search query
-  const handleQuickAddAndSelectClient = (nameToUse?: string) => {
+  const handleQuickAddAndSelectClient = async (nameToUse?: string) => {
     const rawName = (nameToUse || clientSearchTerm).trim();
     if (!rawName) return;
 
-    const newClient = addClient({
-      legalEntityName: rawName,
-      brandTradeName: rawName,
-      primaryContactPerson: 'Primary Contact',
-      officialPhone: '+91 22 2800 0000',
-      mobile: '+91 98000 00000',
-      billingEmail: `accounts@${rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'client'}.com`,
-      registeredAddress: 'Commercial Suite, Mumbai',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      stateCode: '27',
-      pinCode: '400001',
-      gstRegistered: false,
-      gstin: '',
-      pan: '',
-      placeOfSupply: 'Maharashtra (27)',
-      reverseCharge: false,
-      taxExempt: false,
-      clientSegment: 'One-Off',
-      industryCategory: 'General Business',
-      assignedAccountLead: salesExecutive,
-      defaultPaymentTerms: paymentTerms,
-      status: 'Active'
-    });
+    try {
+      const newClient = await addClient({
+        legalEntityName: rawName,
+        brandTradeName: rawName,
+        primaryContactPerson: 'Primary Contact',
+        officialPhone: '+91 22 2800 0000',
+        mobile: '+91 98000 00000',
+        billingEmail: `accounts@${rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'client'}.com`,
+        registeredAddress: 'Commercial Suite, Mumbai',
+        city: 'Mumbai',
+        state: 'Maharashtra',
+        stateCode: '27',
+        pinCode: '400001',
+        gstRegistered: false,
+        gstin: '',
+        pan: '',
+        placeOfSupply: 'Maharashtra (27)',
+        reverseCharge: false,
+        taxExempt: false,
+        clientSegment: 'One-Off',
+        industryCategory: 'General Business',
+        assignedAccountLead: salesExecutive,
+        defaultPaymentTerms: paymentTerms,
+        status: 'Active'
+      });
 
-    setSelectedClientId(newClient.id);
-    setClientSearchTerm('');
+      setSelectedClientId(newClient.id);
+      setClientSearchTerm('');
+    } catch (err: any) {
+      alert(err?.message || 'Failed to create client');
+    }
   };
 
   // Open modal prefilled with search name
@@ -441,37 +445,42 @@ export default function QuotationBuilderPage() {
   const grandTotal = totalTaxableAmount + totalGst;
 
   // Handle Save
-  const handleSaveQuotation = (status: 'Draft' | 'Sent') => {
+  const handleSaveQuotation = async (status: 'Draft' | 'Sent') => {
     let clientToUse = selectedClient;
     if (!clientToUse) {
       if (clientSearchTerm.trim()) {
         const rawName = clientSearchTerm.trim();
-        const newClient = addClient({
-          legalEntityName: rawName,
-          brandTradeName: rawName,
-          primaryContactPerson: 'Primary Contact',
-          officialPhone: '+91 22 2800 0000',
-          mobile: '+91 98000 00000',
-          billingEmail: `accounts@${rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'client'}.com`,
-          registeredAddress: 'Commercial Suite, Mumbai',
-          city: 'Mumbai',
-          state: 'Maharashtra',
-          stateCode: '27',
-          pinCode: '400001',
-          gstRegistered: false,
-          gstin: '',
-          pan: '',
-          placeOfSupply: 'Maharashtra (27)',
-          reverseCharge: false,
-          taxExempt: false,
-          clientSegment: 'One-Off',
-          industryCategory: 'General Business',
-          assignedAccountLead: salesExecutive,
-          defaultPaymentTerms: paymentTerms,
-          status: 'Active'
-        });
-        setSelectedClientId(newClient.id);
-        clientToUse = newClient;
+        try {
+          const newClient = await addClient({
+            legalEntityName: rawName,
+            brandTradeName: rawName,
+            primaryContactPerson: 'Primary Contact',
+            officialPhone: '+91 22 2800 0000',
+            mobile: '+91 98000 00000',
+            billingEmail: `accounts@${rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'client'}.com`,
+            registeredAddress: 'Commercial Suite, Mumbai',
+            city: 'Mumbai',
+            state: 'Maharashtra',
+            stateCode: '27',
+            pinCode: '400001',
+            gstRegistered: false,
+            gstin: '',
+            pan: '',
+            placeOfSupply: 'Maharashtra (27)',
+            reverseCharge: false,
+            taxExempt: false,
+            clientSegment: 'One-Off',
+            industryCategory: 'General Business',
+            assignedAccountLead: salesExecutive,
+            defaultPaymentTerms: paymentTerms,
+            status: 'Active'
+          });
+          setSelectedClientId(newClient.id);
+          clientToUse = newClient;
+        } catch (err: any) {
+          alert(err?.message || 'Failed to auto-create client');
+          return;
+        }
       } else {
         alert("Please select or type a client name before saving the quotation.");
         setStep(1);
@@ -484,73 +493,81 @@ export default function QuotationBuilderPage() {
       return;
     }
 
-    const saved = addQuotation({
-      quotationNumber,
-      revisionNumber: 1,
-      clientId: clientToUse.id,
-      clientName: clientToUse.legalEntityName,
-      projectTitle,
-      quotationDate,
-      validUntil: validUntilDate,
-      placeOfSupply: clientToUse.placeOfSupply,
-      isInterState: clientToUse.stateCode !== '27',
-      salesExecutive,
-      lineItems,
-      documentDiscountType,
-      documentDiscountValue,
-      totalLineSubtotal,
-      totalItemDiscount,
-      documentDiscountAmount,
-      totalTaxableAmount,
-      cgstAmount,
-      sgstAmount,
-      igstAmount,
-      grandTotal,
-      paymentTerms,
-      deliveryTimeline,
-      validityDays,
-      scopeNotes,
-      exclusions,
-      termsAndConditions,
-      internalNotes,
-      status
-    });
+    try {
+      const saved = await addQuotation({
+        quotationNumber,
+        revisionNumber: 1,
+        clientId: clientToUse.id,
+        clientName: clientToUse.legalEntityName,
+        projectTitle,
+        quotationDate,
+        validUntil: validUntilDate,
+        placeOfSupply: clientToUse.placeOfSupply,
+        isInterState: clientToUse.stateCode !== '27',
+        salesExecutive,
+        lineItems,
+        documentDiscountType,
+        documentDiscountValue,
+        totalLineSubtotal,
+        totalItemDiscount,
+        documentDiscountAmount,
+        totalTaxableAmount,
+        cgstAmount,
+        sgstAmount,
+        igstAmount,
+        grandTotal,
+        paymentTerms,
+        deliveryTimeline,
+        validityDays,
+        scopeNotes,
+        exclusions,
+        termsAndConditions,
+        internalNotes,
+        status
+      });
 
-    router.push(`/quotations/${saved.id}`);
+      router.push(`/quotations/${saved.id}`);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to save quotation');
+    }
   };
 
   // Add Client Modal submission
-  const handleModalSaveClient = (e: React.FormEvent) => {
+  const handleModalSaveClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!modalClientName) return;
 
-    const newC = addClient({
-      legalEntityName: modalClientName,
-      brandTradeName: modalBrand || modalClientName,
-      primaryContactPerson: modalContact || "Account Lead",
-      officialPhone: "+91 22 2800 0000",
-      mobile: modalMobile || "+91 98000 00000",
-      billingEmail: modalEmail || "billing@client.com",
-      registeredAddress: "Andheri Commercial Hub",
-      city: "Mumbai",
-      state: modalState,
-      pinCode: "400069",
-      gstRegistered: Boolean(modalGstin),
-      gstin: modalGstin || "27AABCT9999M1Z8",
-      pan: modalGstin ? modalGstin.substring(2, 12) : "AABCT9999M",
-      stateCode: modalState === 'Maharashtra' ? '27' : '29',
-      placeOfSupply: `${modalState} (${modalState === 'Maharashtra' ? '27' : '29'})`,
-      reverseCharge: false,
-      taxExempt: false,
-      clientSegment: 'One-Off',
-      industryCategory: 'General Commerce',
-      assignedAccountLead: salesExecutive,
-      defaultPaymentTerms: paymentTerms,
-      status: 'Active'
-    });
+    try {
+      const newC = await addClient({
+        legalEntityName: modalClientName,
+        brandTradeName: modalBrand || modalClientName,
+        primaryContactPerson: modalContact || "Account Lead",
+        officialPhone: "+91 22 2800 0000",
+        mobile: modalMobile || "+91 98000 00000",
+        billingEmail: modalEmail || "billing@client.com",
+        registeredAddress: "Andheri Commercial Hub",
+        city: "Mumbai",
+        state: modalState,
+        pinCode: "400069",
+        gstRegistered: Boolean(modalGstin),
+        gstin: modalGstin || "27AABCT9999M1Z8",
+        pan: modalGstin ? modalGstin.substring(2, 12) : "AABCT9999M",
+        stateCode: modalState === 'Maharashtra' ? '27' : '29',
+        placeOfSupply: `${modalState} (${modalState === 'Maharashtra' ? '27' : '29'})`,
+        reverseCharge: false,
+        taxExempt: false,
+        clientSegment: 'One-Off',
+        industryCategory: 'General Commerce',
+        assignedAccountLead: salesExecutive,
+        defaultPaymentTerms: paymentTerms,
+        status: 'Active'
+      });
 
-    setSelectedClientId(newC.id);
-    setShowAddClientModal(false);
+      setSelectedClientId(newC.id);
+      setShowAddClientModal(false);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to create client');
+    }
   };
 
   return (

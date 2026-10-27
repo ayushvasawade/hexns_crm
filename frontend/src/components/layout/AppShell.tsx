@@ -26,6 +26,8 @@ import {
 } from 'lucide-react';
 import styles from './AppShell.module.css';
 import { useCrm } from '../../context/CrmContext';
+import { useAuth } from '../../context/AuthContext';
+import { LogOut } from 'lucide-react';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -34,9 +36,14 @@ interface AppShellProps {
 export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const pathname = usePathname();
   const { searchQuery, setSearchQuery, notifications, markNotificationAsRead } = useCrm();
+  const { user, logout } = useAuth();
   const [salesOpen, setSalesOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  if (pathname === '/login') {
+    return <>{children}</>;
+  }
 
   const isSalesActive = pathname.startsWith('/quotations') || 
                         pathname.startsWith('/invoices') || 
@@ -287,8 +294,34 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
             {/* User Profile */}
             <div className={styles.userMenu}>
-              <div className={styles.userAvatar}>V</div>
-              <span className={styles.userName}>Vikram M.</span>
+              <div className={styles.userAvatar}>
+                {user?.fullName ? user.fullName[0].toUpperCase() : (user?.email ? user.email[0].toUpperCase() : 'V')}
+              </div>
+              <span className={styles.userName} title={user?.email || ''}>
+                {user?.fullName || user?.email || 'Vikram M.'}
+              </span>
+              <button
+                type="button"
+                onClick={logout}
+                title="Sign out of account"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 8px',
+                  marginLeft: '4px',
+                  borderRadius: '4px',
+                  border: '1px solid #E5E7EB',
+                  backgroundColor: '#FFFFFF',
+                  color: '#4B5563',
+                  fontSize: '11px',
+                  fontWeight: 500,
+                  cursor: 'pointer'
+                }}
+              >
+                <LogOut size={12} />
+                <span>Logout</span>
+              </button>
             </div>
 
             {/* Contextual Action Button */}

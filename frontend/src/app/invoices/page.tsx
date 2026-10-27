@@ -53,18 +53,22 @@ export default function InvoicesPage() {
     return matchesSearch && matchesStatus && matchesDate;
   });
 
-  const handleDuplicate = (inv: Invoice) => {
-    const count = invoices.length + 48;
-    const newNum = `HEX/26-27/INV-${String(count).padStart(4, '0')}`;
-    const newInv = addInvoice({
-      ...inv,
-      invoiceNumber: newNum,
-      invoiceDate: new Date().toISOString().split('T')[0],
-      amountPaid: 0,
-      balanceDue: inv.grandTotal,
-      status: 'Draft'
-    });
-    router.push(`/invoices/${newInv.id}`);
+  const handleDuplicate = async (inv: Invoice) => {
+    try {
+      const count = invoices.length + 48;
+      const newNum = `HEX/26-27/INV-${String(count).padStart(4, '0')}`;
+      const newInv = await addInvoice({
+        ...inv,
+        invoiceNumber: newNum,
+        invoiceDate: new Date().toISOString().split('T')[0],
+        amountPaid: 0,
+        balanceDue: inv.grandTotal,
+        status: 'Draft'
+      });
+      router.push(`/invoices/${newInv.id}`);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to duplicate invoice');
+    }
   };
 
   const handleExportCSV = () => {
@@ -93,25 +97,29 @@ export default function InvoicesPage() {
     document.body.removeChild(link);
   };
 
-  const handlePaymentSubmit = (e: React.FormEvent) => {
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeInvoiceForPayment) return;
     const amt = parseFloat(payAmount);
     if (isNaN(amt) || amt <= 0) return;
 
-    recordPayment({
-      clientId: activeInvoiceForPayment.clientId,
-      invoiceId: activeInvoiceForPayment.id,
-      amount: amt,
-      paymentDate: payDate,
-      paymentMode: payMode,
-      transactionReference: payRef || `UTR-${Date.now().toString().slice(-6)}`,
-      internalNotes: "Settlement logged via Invoices directory."
-    });
+    try {
+      await recordPayment({
+        clientId: activeInvoiceForPayment.clientId,
+        invoiceId: activeInvoiceForPayment.id,
+        amount: amt,
+        paymentDate: payDate,
+        paymentMode: payMode,
+        transactionReference: payRef || `UTR-${Date.now().toString().slice(-6)}`,
+        internalNotes: "Settlement logged via Invoices directory."
+      });
 
-    setActiveInvoiceForPayment(null);
-    setPayAmount('');
-    setPayRef('');
+      setActiveInvoiceForPayment(null);
+      setPayAmount('');
+      setPayRef('');
+    } catch (err: any) {
+      alert(err?.message || 'Failed to record payment');
+    }
   };
 
   return (

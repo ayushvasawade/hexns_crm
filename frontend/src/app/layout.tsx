@@ -17,6 +17,7 @@ export const metadata: Metadata = {
   description: "Enterprise billing, quotation, invoicing, and financial management system for HEXNS Mediaworks",
 };
 
+import { AuthProvider } from "../context/AuthContext";
 import { CrmProvider } from "../context/CrmContext";
 import { AppShell } from "../components/layout/AppShell";
 
@@ -28,11 +29,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <CrmProvider>
-          <AppShell>
-            {children}
-          </AppShell>
-        </CrmProvider>
+        <AuthProvider>
+          <CrmProvider>
+            <AppShell>
+              {children}
+            </AppShell>
+          </CrmProvider>
+        </AuthProvider>
       </body>
     </html>
   );

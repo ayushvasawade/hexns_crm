@@ -240,7 +240,7 @@ export default function ExpensesPage() {
   };
 
   // Save Expense
-  const handleSaveExpense = (e: React.FormEvent) => {
+  const handleSaveExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formTitle.trim() || formAmount <= 0) {
       alert("Please enter a valid expense title and positive amount.");
@@ -281,9 +281,9 @@ export default function ExpensesPage() {
     };
 
     if (editingExpense) {
-      updateExpense(editingExpense.id, payload);
+      await updateExpense(editingExpense.id, payload);
     } else {
-      addExpense(payload as any);
+      await addExpense(payload as any);
     }
 
     setIsAddModalOpen(false);
@@ -1831,8 +1831,8 @@ export default function ExpensesPage() {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  deleteExpense(deleteConfirmExpense.id);
+                onClick={async () => {
+                  await deleteExpense(deleteConfirmExpense.id);
                   setDeleteConfirmExpense(null);
                 }}
                 style={{ padding: '0.45rem 1rem', backgroundColor: '#DC2626', color: '#FFFFFF', borderRadius: '6px', fontSize: '12.5px', fontWeight: 600, border: 'none', cursor: 'pointer' }}

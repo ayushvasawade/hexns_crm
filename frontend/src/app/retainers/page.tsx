@@ -74,13 +74,13 @@ export default function RetainersPage() {
     setIsAddModalOpen(true);
   };
 
-  const handleSaveRetainer = (e: React.FormEvent) => {
+  const handleSaveRetainer = async (e: React.FormEvent) => {
     e.preventDefault();
     const cl = clients.find(c => c.id === clientId);
     if (!cl || !retainerName) return;
 
     if (editingRetainerId) {
-      updateRetainer(editingRetainerId, {
+      await updateRetainer(editingRetainerId, {
         retainerName,
         clientId: cl.id,
         clientName: cl.legalEntityName,
@@ -92,7 +92,7 @@ export default function RetainersPage() {
         autoGenerateInvoice: autoGenerate
       });
     } else {
-      addRetainer({
+      await addRetainer({
         retainerName,
         clientId: cl.id,
         clientName: cl.legalEntityName,
@@ -111,14 +111,14 @@ export default function RetainersPage() {
     setEditingRetainerId(null);
   };
 
-  const handleToggleStatus = (ret: Retainer) => {
+  const handleToggleStatus = async (ret: Retainer) => {
     const nextStatus = ret.status === 'Active' ? 'Paused' : 'Active';
-    updateRetainer(ret.id, { status: nextStatus });
+    await updateRetainer(ret.id, { status: nextStatus });
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteConfirmRet) return;
-    deleteRetainer(deleteConfirmRet.id);
+    await deleteRetainer(deleteConfirmRet.id);
     setDeleteConfirmRet(null);
   };
 

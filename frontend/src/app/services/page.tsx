@@ -79,31 +79,35 @@ export default function ServicesPage() {
     return matchesSearch && matchesCategory;
   });
 
-  const handleSaveService = (e: React.FormEvent) => {
+  const handleSaveService = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.serviceName) return;
 
-    if (editingService) {
-      updateService(editingService.id, formData);
-      setEditingService(null);
-    } else {
-      addService(formData);
-    }
+    try {
+      if (editingService) {
+        await updateService(editingService.id, formData);
+        setEditingService(null);
+      } else {
+        await addService(formData);
+      }
 
-    setIsAddModalOpen(false);
-    setFormData({
-      serviceName: '',
-      category: 'Social Media Management',
-      description: '',
-      billingUnit: 'Per Month',
-      sacCode: '998311',
-      minPrice: 15000,
-      defaultPrice: 25000,
-      maxPrice: 40000,
-      internalCostPrice: 10000,
-      gstRate: 18,
-      status: 'Active'
-    });
+      setIsAddModalOpen(false);
+      setFormData({
+        serviceName: '',
+        category: 'Social Media Management',
+        description: '',
+        billingUnit: 'Per Month',
+        sacCode: '998311',
+        minPrice: 15000,
+        defaultPrice: 25000,
+        maxPrice: 40000,
+        internalCostPrice: 10000,
+        gstRate: 18,
+        status: 'Active'
+      });
+    } catch (err: any) {
+      alert(err?.message || 'Failed to save service');
+    }
   };
 
   const handleEditClick = (service: ServiceItem) => {
@@ -124,17 +128,25 @@ export default function ServicesPage() {
     setIsAddModalOpen(true);
   };
 
-  const handleDuplicate = (service: ServiceItem) => {
-    addService({
-      ...service,
-      serviceName: `${service.serviceName} (Copy)`
-    });
+  const handleDuplicate = async (service: ServiceItem) => {
+    try {
+      await addService({
+        ...service,
+        serviceName: `${service.serviceName} (Copy)`
+      });
+    } catch (err: any) {
+      alert(err?.message || 'Failed to duplicate service');
+    }
   };
 
-  const toggleStatus = (service: ServiceItem) => {
-    updateService(service.id, {
-      status: service.status === 'Active' ? 'Inactive' : 'Active'
-    });
+  const toggleStatus = async (service: ServiceItem) => {
+    try {
+      await updateService(service.id, {
+        status: service.status === 'Active' ? 'Inactive' : 'Active'
+      });
+    } catch (err: any) {
+      alert(err?.message || 'Failed to update service status');
+    }
   };
 
   return (

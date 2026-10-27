@@ -39,26 +39,30 @@ export default function PaymentsPage() {
   // Total collected summary
   const totalCollected = payments.reduce((acc, p) => acc + p.amount, 0);
 
-  const handleRecordPayment = (e: React.FormEvent) => {
+  const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedInvoice) return;
     const numAmt = parseFloat(amount);
     if (isNaN(numAmt) || numAmt <= 0) return;
 
-    recordPayment({
-      clientId: selectedInvoice.clientId,
-      invoiceId: selectedInvoice.id,
-      amount: numAmt,
-      paymentDate,
-      paymentMode,
-      transactionReference: reference || `UTR-${Date.now().toString().slice(-6)}`,
-      internalNotes
-    });
+    try {
+      await recordPayment({
+        clientId: selectedInvoice.clientId,
+        invoiceId: selectedInvoice.id,
+        amount: numAmt,
+        paymentDate,
+        paymentMode,
+        transactionReference: reference || `UTR-${Date.now().toString().slice(-6)}`,
+        internalNotes
+      });
 
-    setIsAddModalOpen(false);
-    setAmount('');
-    setReference('');
-    setInternalNotes('');
+      setIsAddModalOpen(false);
+      setAmount('');
+      setReference('');
+      setInternalNotes('');
+    } catch (err: any) {
+      alert(err?.message || 'Failed to record payment');
+    }
   };
 
   const filteredPayments = payments.filter(p => {

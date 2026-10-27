@@ -32,9 +32,13 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
     );
   }
 
-  const handleConvert = () => {
-    const inv = convertQuotationToInvoice(quote.id);
-    router.push(`/invoices/${inv.id}`);
+  const handleConvert = async () => {
+    try {
+      const inv = await convertQuotationToInvoice(quote.id);
+      router.push(`/invoices/${inv.id}`);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to convert quotation');
+    }
   };
 
   return (

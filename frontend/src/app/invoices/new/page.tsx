@@ -37,37 +37,41 @@ export default function NewInvoicePage() {
   const client = clients.find(c => c.id === selectedClientId) || null;
   const isInterState = client ? client.stateCode !== '27' : false;
 
-  const handleQuickAddClient = (nameToUse?: string) => {
+  const handleQuickAddClient = async (nameToUse?: string) => {
     const rawName = (nameToUse || clientSearchTerm).trim();
     if (!rawName) return;
 
-    const newClient = addClient({
-      legalEntityName: rawName,
-      brandTradeName: rawName,
-      primaryContactPerson: 'Primary Contact',
-      officialPhone: '+91 22 2800 0000',
-      mobile: '+91 98000 00000',
-      billingEmail: `accounts@${rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'client'}.com`,
-      registeredAddress: 'Commercial Suite, Mumbai',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      stateCode: '27',
-      pinCode: '400001',
-      gstRegistered: false,
-      gstin: '',
-      pan: '',
-      placeOfSupply: 'Maharashtra (27)',
-      reverseCharge: false,
-      taxExempt: false,
-      clientSegment: 'One-Off',
-      industryCategory: 'General Business',
-      assignedAccountLead: 'Vikram Malhotra',
-      defaultPaymentTerms: '50% Advance + 50% Before Delivery',
-      status: 'Active'
-    });
+    try {
+      const newClient = await addClient({
+        legalEntityName: rawName,
+        brandTradeName: rawName,
+        primaryContactPerson: 'Primary Contact',
+        officialPhone: '+91 22 2800 0000',
+        mobile: '+91 98000 00000',
+        billingEmail: `accounts@${rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'client'}.com`,
+        registeredAddress: 'Commercial Suite, Mumbai',
+        city: 'Mumbai',
+        state: 'Maharashtra',
+        stateCode: '27',
+        pinCode: '400001',
+        gstRegistered: false,
+        gstin: '',
+        pan: '',
+        placeOfSupply: 'Maharashtra (27)',
+        reverseCharge: false,
+        taxExempt: false,
+        clientSegment: 'One-Off',
+        industryCategory: 'General Business',
+        assignedAccountLead: 'Vikram Malhotra',
+        defaultPaymentTerms: '50% Advance + 50% Before Delivery',
+        status: 'Active'
+      });
 
-    setSelectedClientId(newClient.id);
-    setClientSearchTerm('');
+      setSelectedClientId(newClient.id);
+      setClientSearchTerm('');
+    } catch (err: any) {
+      alert(err?.message || 'Failed to create client');
+    }
   };
 
   // Line items
@@ -166,37 +170,42 @@ export default function NewInvoicePage() {
   const igstAmount = isInterState ? totalGst : 0;
   const grandTotal = totalTaxable + totalGst;
 
-  const handleCreateInvoice = () => {
+  const handleCreateInvoice = async () => {
     let clientToUse = client;
     if (!clientToUse) {
       if (clientSearchTerm.trim()) {
         const rawName = clientSearchTerm.trim();
-        const newC = addClient({
-          legalEntityName: rawName,
-          brandTradeName: rawName,
-          primaryContactPerson: 'Primary Contact',
-          officialPhone: '+91 22 2800 0000',
-          mobile: '+91 98000 00000',
-          billingEmail: `accounts@${rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'client'}.com`,
-          registeredAddress: 'Commercial Suite, Mumbai',
-          city: 'Mumbai',
-          state: 'Maharashtra',
-          stateCode: '27',
-          pinCode: '400001',
-          gstRegistered: false,
-          gstin: '',
-          pan: '',
-          placeOfSupply: 'Maharashtra (27)',
-          reverseCharge: false,
-          taxExempt: false,
-          clientSegment: 'One-Off',
-          industryCategory: 'General Business',
-          assignedAccountLead: 'Vikram Malhotra',
-          defaultPaymentTerms: '50% Advance + 50% Before Delivery',
-          status: 'Active'
-        });
-        setSelectedClientId(newC.id);
-        clientToUse = newC;
+        try {
+          const newC = await addClient({
+            legalEntityName: rawName,
+            brandTradeName: rawName,
+            primaryContactPerson: 'Primary Contact',
+            officialPhone: '+91 22 2800 0000',
+            mobile: '+91 98000 00000',
+            billingEmail: `accounts@${rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'client'}.com`,
+            registeredAddress: 'Commercial Suite, Mumbai',
+            city: 'Mumbai',
+            state: 'Maharashtra',
+            stateCode: '27',
+            pinCode: '400001',
+            gstRegistered: false,
+            gstin: '',
+            pan: '',
+            placeOfSupply: 'Maharashtra (27)',
+            reverseCharge: false,
+            taxExempt: false,
+            clientSegment: 'One-Off',
+            industryCategory: 'General Business',
+            assignedAccountLead: 'Vikram Malhotra',
+            defaultPaymentTerms: '50% Advance + 50% Before Delivery',
+            status: 'Active'
+          });
+          setSelectedClientId(newC.id);
+          clientToUse = newC;
+        } catch (err: any) {
+          alert(err?.message || 'Failed to auto-create client');
+          return;
+        }
       } else {
         alert("Please select or enter a client name before generating the invoice.");
         return;
@@ -208,35 +217,39 @@ export default function NewInvoicePage() {
       return;
     }
 
-    const newInv = addInvoice({
-      invoiceNumber,
-      quotationId: selectedQuoteId || undefined,
-      clientId: clientToUse.id,
-      clientName: clientToUse.legalEntityName,
-      projectTitle,
-      invoiceDate,
-      dueDate,
-      placeOfSupply: clientToUse.placeOfSupply,
-      isInterState: clientToUse.stateCode !== '27',
-      lineItems,
-      documentDiscountType: 'fixed',
-      documentDiscountValue: 0,
-      totalLineSubtotal: totalTaxable,
-      totalItemDiscount: 0,
-      documentDiscountAmount: 0,
-      totalTaxableAmount: totalTaxable,
-      cgstAmount,
-      sgstAmount,
-      igstAmount,
-      grandTotal,
-      amountPaid: 0,
-      balanceDue: grandTotal,
-      status: 'Sent',
-      notes,
-      bankDetails: settings.bank
-    });
+    try {
+      const newInv = await addInvoice({
+        invoiceNumber,
+        quotationId: selectedQuoteId || undefined,
+        clientId: clientToUse.id,
+        clientName: clientToUse.legalEntityName,
+        projectTitle,
+        invoiceDate,
+        dueDate,
+        placeOfSupply: clientToUse.placeOfSupply,
+        isInterState: clientToUse.stateCode !== '27',
+        lineItems,
+        documentDiscountType: 'fixed',
+        documentDiscountValue: 0,
+        totalLineSubtotal: totalTaxable,
+        totalItemDiscount: 0,
+        documentDiscountAmount: 0,
+        totalTaxableAmount: totalTaxable,
+        cgstAmount,
+        sgstAmount,
+        igstAmount,
+        grandTotal,
+        amountPaid: 0,
+        balanceDue: grandTotal,
+        status: 'Sent',
+        notes,
+        bankDetails: settings.bank
+      });
 
-    router.push(`/invoices/${newInv.id}`);
+      router.push(`/invoices/${newInv.id}`);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to create invoice');
+    }
   };
 
   return (

@@ -53,7 +53,7 @@ The application is structured as a high-performance monorepo:
 4. Configure environment variables:
    ```bash
    cp .env.example .env
-   # Update DATABASE_URL with your Neon PostgreSQL connection string when ready
+   # Update DATABASE_URL, SYNC_DATABASE_URL, and JWT_SECRET_KEY with real values.
    ```
 
 5. Run the FastAPI development server:
@@ -108,8 +108,8 @@ Alembic is configured with async SQLAlchemy support. Once your live Neon Postgre
 ```bash
 cd backend
 
-# Create a new migration revision from SQLAlchemy models
-alembic revision --autogenerate -m "initial_schema"
+# Create a new migration revision after changing SQLAlchemy models
+alembic revision --autogenerate -m "describe_change"
 
 # Apply migrations to the database
 alembic upgrade head
@@ -117,6 +117,25 @@ alembic upgrade head
 # Rollback last migration
 alembic downgrade -1
 ```
+
+The committed `20261026_initial` revision creates the Phase 1 schema from the
+registered SQLAlchemy metadata. Do not run `upgrade` until `backend/.env`
+contains a valid Neon URL; the repository intentionally contains no database
+credentials. The current environment reports `database_is_configured=False`,
+so no real Neon connection or migration application was claimed.
+
+### Authentication foundation
+
+The backend exposes `POST /api/v1/auth/login` with a JSON body containing
+`email` and `password`, and `GET /api/v1/auth/me` as the first protected-route
+example. Passwords use Argon2 through `pwdlib`; access tokens use signed,
+expiring JWTs. Generate a production secret with a password generator and keep
+it in `backend/.env`.
+
+Company settings use an idempotent `PUT /api/v1/settings/company`: the first
+call creates the authenticated owner's settings row with safe empty defaults,
+and later calls update it. Phase 2 API services record invoice payments under
+row locking.
 
 ---
 

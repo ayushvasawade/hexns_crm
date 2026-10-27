@@ -47,18 +47,22 @@ export default function QuotationsPage() {
     return matchesSearch && matchesStatus && matchesDate;
   });
 
-  const handleDuplicate = (quote: Quotation) => {
-    const dupCount = quotations.length + 91;
-    const dupNumber = `HEX/26-27/Q-${String(dupCount).padStart(4, '0')}`;
-    const newQuote = addQuotation({
-      ...quote,
-      quotationNumber: dupNumber,
-      revisionNumber: 1,
-      projectTitle: `${quote.projectTitle} (Copy)`,
-      status: "Draft",
-      quotationDate: new Date().toISOString().split('T')[0]
-    });
-    router.push(`/quotations/${newQuote.id}`);
+  const handleDuplicate = async (quote: Quotation) => {
+    try {
+      const dupCount = quotations.length + 91;
+      const dupNumber = `HEX/26-27/Q-${String(dupCount).padStart(4, '0')}`;
+      const newQuote = await addQuotation({
+        ...quote,
+        quotationNumber: dupNumber,
+        revisionNumber: 1,
+        projectTitle: `${quote.projectTitle} (Copy)`,
+        status: "Draft",
+        quotationDate: new Date().toISOString().split('T')[0]
+      });
+      router.push(`/quotations/${newQuote.id}`);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to duplicate quotation');
+    }
   };
 
   const handleExportCSV = () => {
@@ -87,19 +91,27 @@ export default function QuotationsPage() {
     document.body.removeChild(link);
   };
 
-  const handleRejectSubmit = (e: React.FormEvent) => {
+  const handleRejectSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!rejectModalQuoteId) return;
-    updateQuotationStatus(rejectModalQuoteId, 'Rejected', rejectionReason);
-    setRejectModalQuoteId(null);
-    setRejectionReason('');
+    try {
+      await updateQuotationStatus(rejectModalQuoteId, 'Rejected', rejectionReason);
+      setRejectModalQuoteId(null);
+      setRejectionReason('');
+    } catch (err: any) {
+      alert(err?.message || 'Failed to reject quotation');
+    }
   };
 
-  const handleConvertExecute = () => {
+  const handleConvertExecute = async () => {
     if (!convertConfirmQuote) return;
-    const invoice = convertQuotationToInvoice(convertConfirmQuote.id);
-    setConvertConfirmQuote(null);
-    router.push(`/invoices/${invoice.id}`);
+    try {
+      const invoice = await convertQuotationToInvoice(convertConfirmQuote.id);
+      setConvertConfirmQuote(null);
+      router.push(`/invoices/${invoice.id}`);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to convert quotation to invoice');
+    }
   };
 
   return (

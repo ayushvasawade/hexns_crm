@@ -104,16 +104,19 @@ export default function ClientsPage() {
     }));
   };
 
-  const handleSaveClient = (e: React.FormEvent) => {
+  const handleSaveClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.legalEntityName) return;
 
-    addClient({
-      ...formData,
-      status: 'Active'
-    });
-
-    setIsAddModalOpen(false);
+    try {
+      await addClient({
+        ...formData,
+        status: 'Active'
+      });
+      setIsAddModalOpen(false);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to save client');
+    }
   };
 
   const openClientDetail = (client: Client) => {
@@ -303,13 +306,17 @@ export default function ClientsPage() {
                         <Eye size={16} />
                       </button>
                       <button
-                        onClick={() => {
-                          const dup = addClient({
-                            ...client,
-                            legalEntityName: `${client.legalEntityName} (Copy)`,
-                            brandTradeName: `${client.brandTradeName} (Copy)`
-                          });
-                          openClientDetail(dup);
+                        onClick={async () => {
+                          try {
+                            const dup = await addClient({
+                              ...client,
+                              legalEntityName: `${client.legalEntityName} (Copy)`,
+                              brandTradeName: `${client.brandTradeName} (Copy)`
+                            });
+                            openClientDetail(dup);
+                          } catch (err: any) {
+                            alert(err?.message || 'Failed to duplicate client');
+                          }
                         }}
                         title="Duplicate Client"
                         style={{ padding: '4px', color: '#4B5563', borderRadius: '4px', border: 'none', background: 'transparent', cursor: 'pointer' }}

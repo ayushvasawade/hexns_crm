@@ -117,10 +117,10 @@ export default function DashboardPage() {
   }, [filteredInvoices]);
 
   // Handle Quick Add Client
-  const handleQuickAddClient = (e: React.FormEvent) => {
+  const handleQuickAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newClientName) return;
-    addClient({
+    await addClient({
       legalEntityName: newClientName,
       brandTradeName: newClientBrand || newClientName,
       primaryContactPerson: newClientContact || "Account Lead",
@@ -154,14 +154,14 @@ export default function DashboardPage() {
   };
 
   // Handle Quick Payment
-  const handleQuickAddPayment = (e: React.FormEvent) => {
+  const handleQuickAddPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     const inv = invoices.find(i => i.id === payInvoiceId);
     if (!inv || !payAmount) return;
     const amountNum = parseFloat(payAmount);
     if (isNaN(amountNum) || amountNum <= 0) return;
 
-    recordPayment({
+    await recordPayment({
       clientId: inv.clientId,
       invoiceId: inv.id,
       amount: amountNum,

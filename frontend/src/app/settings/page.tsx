@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Settings, 
   Building, 
@@ -59,9 +59,39 @@ export default function SettingsPage() {
     paymentPrefix: settings.paymentPrefix
   });
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    setFormData({
+      legalEntityName: settings.legalEntityName,
+      registeredAddress: settings.registeredAddress,
+      city: settings.city,
+      state: settings.state,
+      stateCode: settings.stateCode,
+      pinCode: settings.pinCode,
+      gstin: settings.gstin,
+      pan: settings.pan,
+      corporateEmail: settings.corporateEmail,
+      corporatePhone: settings.corporatePhone,
+      website: settings.website,
+      bankName: settings.bank?.bankName || '',
+      accountHolder: settings.bank?.accountHolder || '',
+      accountNumber: settings.bank?.accountNumber || '',
+      ifsc: settings.bank?.ifsc || '',
+      branch: settings.bank?.branch || '',
+      upiVpa: settings.bank?.upiVpa || '',
+      defaultGstRate: settings.defaultGstRate || 18,
+      defaultValidityDays: settings.defaultValidityDays || 30,
+      defaultPaymentTerms: settings.defaultPaymentTerms || '50% Advance with PO, 50% prior to final asset handover / within 7 days',
+      quotationTerms: settings.quotationTerms,
+      invoiceStatutoryNote: settings.invoiceStatutoryNote,
+      quotationPrefix: settings.quotationPrefix,
+      invoicePrefix: settings.invoicePrefix,
+      paymentPrefix: settings.paymentPrefix
+    });
+  }, [settings]);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateSettings({
+    await updateSettings({
       legalEntityName: formData.legalEntityName,
       registeredAddress: formData.registeredAddress,
       city: formData.city,

@@ -1,7 +1,11 @@
 from fastapi import APIRouter
 from app.core.config import settings
+from app.modules.auth.router import router as auth_router
+from app.modules.crm.router import router as crm_router
 
 api_router = APIRouter(prefix=settings.API_V1_STR)
+api_router.include_router(auth_router, prefix="/auth", tags=["Auth"])
+api_router.include_router(crm_router, tags=["CRM"])
 
 
 @api_router.get("/health", tags=["Health"])
