@@ -18,6 +18,7 @@ import { formatINR, formatDate, numberToWordsINR } from '../../../lib/formatters
 import { Badge } from '../../../components/ui/Badge';
 import { Modal } from '../../../components/ui/Modal';
 import { generateInvoicePDF } from '../../../lib/exportUtils';
+import { LetterheadLayout } from '../../../components/document/LetterheadLayout';
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -68,7 +69,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '3rem' }}>
+    <div className="document-view-page">
       {/* Action Bar (Hidden during print) */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }} className="no-print">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -154,46 +155,27 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      {/* A4 Printable Tax Invoice */}
-      <div style={{
-        backgroundColor: '#FFFFFF',
-        border: '1px solid #E5E7EB',
-        borderRadius: '8px',
-        padding: '3rem',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1.75rem',
-        maxWidth: '850px',
-        margin: '0 auto',
-        width: '100%'
-      }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #171717', paddingBottom: '1.25rem' }}>
+      {/* A4 Letterhead Printable Tax Invoice */}
+      <LetterheadLayout>
+        {/* Document Header & Reference */}
+        <div className="print-avoid-break" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px solid #171717', paddingBottom: '0.85rem' }}>
           <div>
-            <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#171717', letterSpacing: '-0.02em' }}>
-              {settings.legalEntityName}
-            </h2>
-            <div style={{ fontSize: '12px', color: '#4B5563', marginTop: '4px', lineHeight: '1.4' }}>
-              {settings.registeredAddress}, {settings.city}, {settings.state} — {settings.pinCode}<br />
-              GSTIN: <strong>{settings.gstin}</strong> | PAN: {settings.pan}<br />
-              Email: {settings.corporateEmail} | Web: {settings.website}
-            </div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <span style={{ fontSize: '18px', fontWeight: 800, color: '#171717', letterSpacing: '0.05em' }}>
+            <span style={{ fontSize: '18px', fontWeight: 800, color: '#171717', letterSpacing: '0.04em' }}>
               TAX INVOICE
             </span>
-            <div style={{ fontSize: '14px', fontWeight: 700, marginTop: '4px', fontFamily: 'monospace' }}>
+            <div style={{ fontSize: '13.5px', fontWeight: 700, marginTop: '3px', fontFamily: 'monospace', color: '#2563EB' }}>
               {invoice.invoiceNumber}
             </div>
-            <div style={{ fontSize: '12px', color: '#737373' }}>Invoice Date: {formatDate(invoice.invoiceDate)}</div>
-            <div style={{ fontSize: '12px', color: '#737373' }}>Payment Due: {formatDate(invoice.dueDate)}</div>
             {invoice.quotationNumber && (
-              <div style={{ fontSize: '11px', color: '#2563EB', marginTop: '2px' }}>
-                Ref Quote: {invoice.quotationNumber}
+              <div style={{ fontSize: '11.5px', color: '#2563EB', marginTop: '2px' }}>
+                Ref Quotation: {invoice.quotationNumber}
               </div>
             )}
+          </div>
+          <div style={{ textAlign: 'right', fontSize: '12px', color: '#4B5563', lineHeight: '1.5' }}>
+            <div>Invoice Date: <strong style={{ color: '#171717' }}>{formatDate(invoice.invoiceDate)}</strong></div>
+            <div>Payment Due: <strong style={{ color: '#171717' }}>{formatDate(invoice.dueDate)}</strong></div>
+            <div style={{ fontSize: '11px', color: '#737373' }}>Status: <strong>{invoice.status}</strong></div>
           </div>
         </div>
 
@@ -349,7 +331,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             <strong style={{ fontSize: '11px' }}>{settings.legalEntityName}</strong>
           </div>
         </div>
-      </div>
+      </LetterheadLayout>
 
       {/* Record Payment Modal */}
       <Modal

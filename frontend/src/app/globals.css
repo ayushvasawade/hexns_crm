@@ -121,20 +121,302 @@ input, select, textarea {
   background: var(--text-muted);
 }
 
-/* Print Styles for A4 Quotations & Invoices */
+/* ==========================================================================
+   Document & Letterhead Layout Styles (Screen Mode)
+   Modeled accurately from 'Hexns Letter Head (1).pdf'
+   ========================================================================== */
+
+.document-view-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding-bottom: 3rem;
+}
+
+.a4-document-container {
+  background-color: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  max-width: 820px;
+  margin: 0 auto;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.letterhead-root-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: none;
+}
+
+.letterhead-header {
+  padding: 1.75rem 2.5rem 0.5rem 2.5rem;
+}
+
+.letterhead-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.letterhead-logo-img {
+  height: 42px;
+  width: auto;
+  display: block;
+}
+
+.letterhead-top-divider {
+  height: 1.5px;
+  background-color: #1C2024;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.letterhead-content-body {
+  padding: 0.75rem 2.5rem 1.5rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.letterhead-footer {
+  padding: 0.5rem 2.5rem 1.75rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.letterhead-bottom-divider {
+  height: 1.5px;
+  background-color: #1C2024;
+  width: 100%;
+  margin-bottom: 0.75rem;
+}
+
+.letterhead-footer-company {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1C2024;
+  letter-spacing: 0.01em;
+}
+
+.letterhead-footer-sep {
+  color: #9CA3AF;
+  margin: 0 4px;
+}
+
+.letterhead-footer-address {
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 500;
+  color: #1C2024;
+  margin-top: 3px;
+}
+
+.letterhead-footer-contacts {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: #1C2024;
+}
+
+.letterhead-contact-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.letterhead-icon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background-color: #1C2024;
+  color: #FFFFFF;
+}
+
+.letterhead-icon-badge svg {
+  width: 9px;
+  height: 9px;
+  stroke: #FFFFFF;
+}
+
+.letterhead-disclaimer-divider {
+  width: 55%;
+  height: 0.75px;
+  background-color: #E5E7EB;
+  margin: 8px auto 6px auto;
+}
+
+.letterhead-footer-disclaimer {
+  font-size: 8.5px;
+  color: #6B7280;
+  line-height: 1.35;
+  text-align: center;
+}
+
+/* ==========================================================================
+   Print Styles for A4 Quotations & Invoices
+   ========================================================================== */
 @media print {
-  body {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm 12mm 12mm;
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box !important;
+  }
+
+  html, body {
     background: #FFFFFF !important;
-    color: #000000 !important;
+    background-color: #FFFFFF !important;
+    color: #171717 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
-  .no-print {
+
+  /* Universal hide utilities */
+  .no-print,
+  .no-print * {
     display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
   }
+
   .print-only {
     display: block !important;
   }
-  @page {
-    size: A4;
-    margin: 15mm;
+
+  /* Structural shell resets */
+  aside,
+  header,
+  nav {
+    display: none !important;
+  }
+
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  /* Container resets - eliminate empty first page */
+  .document-view-page,
+  .quotation-builder-page,
+  .step-container,
+  .a4-document-container,
+  .a4-print-document {
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    gap: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    height: auto !important;
+    position: static !important;
+    break-before: auto !important;
+    page-break-before: auto !important;
+  }
+
+  .letterhead-root-table {
+    display: table !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
+    border: none !important;
+  }
+
+  .letterhead-thead {
+    display: table-header-group !important;
+  }
+
+  .letterhead-tfoot {
+    display: table-footer-group !important;
+  }
+
+  .letterhead-tbody {
+    display: table-row-group !important;
+  }
+
+  .letterhead-header {
+    padding: 0 0 0.5rem 0 !important;
+  }
+
+  .letterhead-logo-img {
+    height: 38px !important;
+    width: auto !important;
+  }
+
+  .letterhead-top-divider {
+    height: 1.5px !important;
+    background-color: #1C2024 !important;
+    margin-top: 0.65rem !important;
+  }
+
+  .letterhead-content-body {
+    padding: 0.5rem 0 1rem 0 !important;
+  }
+
+  .letterhead-footer {
+    padding: 0.5rem 0 0 0 !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .letterhead-bottom-divider {
+    height: 1.5px !important;
+    background-color: #1C2024 !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  /* Sections within document that must avoid splitting internally */
+  .print-avoid-break {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Table rules for multi-page quotations */
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+
+  tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  td, th {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 }

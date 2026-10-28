@@ -381,3 +381,40 @@
     padding: 1rem;
   }
 }
+
+@media print {
+  .shell {
+    display: block !important;
+    min-height: auto !important;
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+
+  .sidebar,
+  .header,
+  .backdrop,
+  .mobileMenuBtn {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    width: 0 !important;
+  }
+
+  .mainWrapper {
+    margin-left: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    background: transparent !important;
+    display: block !important;
+  }
+
+  .content {
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    display: block !important;
+  }
+}
+

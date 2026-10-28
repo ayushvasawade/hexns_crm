@@ -13,6 +13,7 @@ import { useCrm } from '../../../context/CrmContext';
 import { formatINR, formatDate, numberToWordsINR } from '../../../lib/formatters';
 import { Badge } from '../../../components/ui/Badge';
 import { generateQuotationPDF } from '../../../lib/exportUtils';
+import { LetterheadLayout } from '../../../components/document/LetterheadLayout';
 
 export default function QuotationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -42,7 +43,7 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '3rem' }}>
+    <div className="document-view-page">
       {/* Top Action Bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }} className="no-print">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -168,46 +169,27 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
         </div>
       </div>
 
-      {/* A4 Document View */}
-      <div style={{
-        backgroundColor: '#FFFFFF',
-        border: '1px solid #E5E7EB',
-        borderRadius: '8px',
-        padding: '3rem',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1.75rem',
-        maxWidth: '850px',
-        margin: '0 auto',
-        width: '100%'
-      }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #171717', paddingBottom: '1.25rem' }}>
+      {/* A4 Letterhead Document View */}
+      <LetterheadLayout>
+        {/* Document Header & Reference */}
+        <div className="print-avoid-break" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px solid #171717', paddingBottom: '0.85rem' }}>
           <div>
-            <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#171717', letterSpacing: '-0.02em' }}>
-              {settings.legalEntityName}
-            </h2>
-            <div style={{ fontSize: '12px', color: '#4B5563', marginTop: '4px', lineHeight: '1.4' }}>
-              {settings.registeredAddress}, {settings.city}, {settings.state} — {settings.pinCode}<br />
-              GSTIN: <strong>{settings.gstin}</strong> | PAN: {settings.pan}<br />
-              Email: {settings.corporateEmail} | Web: {settings.website}
-            </div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <span style={{ fontSize: '18px', fontWeight: 800, color: '#171717', letterSpacing: '0.05em' }}>
-              ESTIMATE / QUOTATION
+            <span style={{ fontSize: '18px', fontWeight: 800, color: '#171717', letterSpacing: '0.04em' }}>
+              COMMERCIAL ESTIMATE / QUOTATION
             </span>
-            <div style={{ fontSize: '14px', fontWeight: 700, marginTop: '4px', fontFamily: 'monospace' }}>
+            <div style={{ fontSize: '13.5px', fontWeight: 700, marginTop: '3px', fontFamily: 'monospace', color: '#2563EB' }}>
               {quote.quotationNumber}
             </div>
-            <div style={{ fontSize: '12px', color: '#737373' }}>Date: {formatDate(quote.quotationDate)}</div>
-            <div style={{ fontSize: '12px', color: '#737373' }}>Valid Until: {formatDate(quote.validUntil)}</div>
+          </div>
+          <div style={{ textAlign: 'right', fontSize: '12px', color: '#4B5563', lineHeight: '1.5' }}>
+            <div>Date: <strong style={{ color: '#171717' }}>{formatDate(quote.quotationDate)}</strong></div>
+            <div>Valid Until: <strong style={{ color: '#171717' }}>{formatDate(quote.validUntil)}</strong></div>
+            <div style={{ fontSize: '11px', color: '#737373' }}>Revision: {quote.revisionNumber}</div>
           </div>
         </div>
 
         {/* Client & Scope */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', fontSize: '13px' }}>
+        <div className="print-avoid-break" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', fontSize: '13px' }}>
           <div>
             <span style={{ fontSize: '11px', fontWeight: 700, color: '#737373', textTransform: 'uppercase' }}>Billed To:</span>
             <div style={{ fontSize: '15px', fontWeight: 700, color: '#171717', marginTop: '2px' }}>
@@ -260,7 +242,7 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
         </table>
 
         {/* Summary & Totals */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div className="print-avoid-break" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div style={{ maxWidth: '420px', fontSize: '12px', color: '#4B5563' }}>
             <span style={{ fontWeight: 700, textTransform: 'uppercase', color: '#171717' }}>Scope Notes & Exclusions:</span>
             <p style={{ marginTop: '2px', whiteSpace: 'pre-line' }}>{quote.scopeNotes}</p>
@@ -300,7 +282,7 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
         </div>
 
         {/* Bank & Signatures */}
-        <div style={{
+        <div className="print-avoid-break" style={{
           borderTop: '1px solid #E5E7EB',
           paddingTop: '1rem',
           display: 'flex',
@@ -320,7 +302,7 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
             <strong style={{ fontSize: '11px' }}>{settings.legalEntityName}</strong>
           </div>
         </div>
-      </div>
+      </LetterheadLayout>
     </div>
   );
 }

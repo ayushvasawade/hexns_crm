@@ -68,7 +68,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
       )}
 
       {/* Persistent Left Sidebar */}
-      <aside className={`${styles.sidebar} ${mobileOpen ? styles.sidebarOpen : ''}`}>
+      <aside className={`${styles.sidebar} no-print ${mobileOpen ? styles.sidebarOpen : ''}`}>
         <div className={styles.brand}>
           <div className={styles.brandLogo}>H</div>
           <div className={styles.brandText}>
@@ -215,7 +215,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
       {/* Main Wrapper */}
       <div className={styles.mainWrapper}>
         {/* Top Header */}
-        <header className={styles.header}>
+        <header className={`${styles.header} no-print`}>
           <div className={styles.headerLeft}>
             <button 
               className={styles.mobileMenuBtn} 
