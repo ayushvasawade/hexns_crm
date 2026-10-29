@@ -17,8 +17,7 @@ import {
 } from '../types/crm';
 import { 
   INITIAL_COMPANY_SETTINGS,
-  SEED_SERVICES
-  INITIAL_COMPANY_SETTINGS
+  SEED_SERVICES,
 } from '../data/seedData';
 import {
   clientsApi,
@@ -202,7 +201,6 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         settingsRes,
       ] = await Promise.allSettled([
         clientsApi.list({ page: 1, page_size: 100 }),
-        servicesApi.list({ page: 1, page_size: 100 }),
         fetchAllServices(),
         packagesApi.list({ page: 1, page_size: 100 }),
         quotationsApi.list({ page: 1, page_size: 100 }),
@@ -225,7 +223,6 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // 2. Services
       // 2. Services (Full paginated catalogue)
       const loadedServices: ServiceItem[] = servicesRes.status === 'fulfilled'
-        ? (servicesRes.value.items || []).map(adaptService)
         ? servicesRes.value
         : [];
       setServices(loadedServices);
