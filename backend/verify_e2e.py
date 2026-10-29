@@ -85,6 +85,14 @@ async def run_end_to_end_verification():
         print(f"  [PASS] Client created successfully: ID = {client_id}")
 
         # 6. Create a Service
+        # 6. Retrieve genuine catalogue service (prevents test data pollution)
+        print("\n[Step 6] Retrieving genuine catalogue service for verification...")
+        cat_resp = await client.get("/api/v1/services?status=Active&page=1&page_size=5", headers=headers)
+        assert cat_resp.status_code == 200, f"Get services failed: {cat_resp.text}"
+        cat_items = cat_resp.json()["items"]
+        assert len(cat_items) > 0, "Expected active services in catalogue"
+        created_service = cat_items[0]
+        service_id = created_service["id"]
         service_payload = {
             "service_name": f"AI Brand Video Production {test_suffix}",
             "category": "Creative & Content Production",
@@ -98,6 +106,11 @@ async def run_end_to_end_verification():
             "internal_cost_price": "80000.00",
             "gst_rate": "18.00",
             "status": "Active"
+            "service_name": created_service["serviceName"],
+            "category": created_service["category"],
+            "default_price": created_service["defaultPrice"],
+            "min_price": created_service["minPrice"],
+            "max_price": created_service["maxPrice"],
         }
         print(f"\n[Step 6] Creating service '{service_payload['service_name']}'...")
         service_resp = await client.post("/api/v1/services", json=service_payload, headers=headers)
@@ -105,6 +118,7 @@ async def run_end_to_end_verification():
         created_service = service_resp.json()
         service_id = created_service["id"]
         print(f"  [PASS] Service created successfully: ID = {service_id}")
+        print(f"  [PASS] Using genuine catalogue service for downstream tests: '{created_service['serviceName']}' ({service_id})")
 
         # 7. Create a Quotation
         today = date.today()

@@ -18,6 +18,7 @@ import {
 import { 
   INITIAL_COMPANY_SETTINGS,
   SEED_SERVICES
+  INITIAL_COMPANY_SETTINGS
 } from '../data/seedData';
 import {
   clientsApi,
@@ -173,6 +174,22 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsLoading(true);
     setError(null);
     try {
+      // Helper to fetch all pages for services to ensure full catalogue is loaded
+      const fetchAllServices = async (): Promise<ServiceItem[]> => {
+        let all: any[] = [];
+        let page = 1;
+        let total = 0;
+        do {
+          const res = await servicesApi.list({ page, page_size: 100 });
+          const items = res.items || [];
+          all = all.concat(items);
+          total = res.total || 0;
+          page += 1;
+          if (items.length === 0) break;
+        } while (all.length < total);
+        return all.map(adaptService);
+      };
+
       const [
         clientsRes,
         servicesRes,
@@ -186,6 +203,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ] = await Promise.allSettled([
         clientsApi.list({ page: 1, page_size: 100 }),
         servicesApi.list({ page: 1, page_size: 100 }),
+        fetchAllServices(),
         packagesApi.list({ page: 1, page_size: 100 }),
         quotationsApi.list({ page: 1, page_size: 100 }),
         invoicesApi.list({ page: 1, page_size: 100 }),
@@ -205,8 +223,10 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       loadedClients.forEach(c => { localClientMap[c.id] = c; });
 
       // 2. Services
+      // 2. Services (Full paginated catalogue)
       const loadedServices: ServiceItem[] = servicesRes.status === 'fulfilled'
         ? (servicesRes.value.items || []).map(adaptService)
+        ? servicesRes.value
         : [];
       setServices(loadedServices);
 
@@ -310,6 +330,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Optional convenience helper to populate service catalogue if database is empty
+  // Service catalogue is seeded directly and reliably via backend/seed_services.py
   const seedCatalogueIfEmpty = async () => {
     if (services.length > 0) return;
     setIsLoading(true);
@@ -323,6 +344,8 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } finally {
       setIsLoading(false);
     }
+    // Keep Neon PostgreSQL as live source of truth; refresh data
+    await loadAllData();
   };
 
   // -----------------------------------------------------------

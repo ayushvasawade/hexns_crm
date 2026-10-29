@@ -56,6 +56,7 @@ class Service(OwnedMixin, TimestampMixin, Base):
     __tablename__ = "services"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     service_name: Mapped[str] = mapped_column(String(200), unique=True)
+    service_name: Mapped[str] = mapped_column(String(200), index=True)
     category: Mapped[str] = mapped_column(String(120))
     group_category: Mapped[str | None] = mapped_column(String(120))
     description: Mapped[str] = mapped_column(Text)
@@ -68,6 +69,7 @@ class Service(OwnedMixin, TimestampMixin, Base):
     gst_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2))
     status: Mapped[str] = mapped_column(String(20), default="Active", server_default="Active")
     __table_args__ = (
+        UniqueConstraint("owner_id", "service_name", "category", name="uq_services_owner_name_cat"),
         CheckConstraint("min_price >= 0 AND default_price >= min_price AND max_price >= default_price", name="ck_services_prices"),
         CheckConstraint("gst_rate >= 0 AND gst_rate <= 100", name="ck_services_gst_rate"),
     )
