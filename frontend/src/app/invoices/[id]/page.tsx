@@ -25,7 +25,8 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const resolvedParams = use(params);
   const { invoices, payments, settings, recordPayment } = useCrm();
 
-  const invoice = invoices.find(inv => inv.id === resolvedParams.id);
+  const decodedId = decodeURIComponent(resolvedParams.id).toLowerCase();
+  const invoice = invoices.find(inv => inv.id.toLowerCase() === decodedId || inv.invoiceNumber?.toLowerCase() === decodedId);
   const [showPayModal, setShowPayModal] = useState(false);
   const [payAmount, setPayAmount] = useState(invoice ? String(invoice.balanceDue) : '');
   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
