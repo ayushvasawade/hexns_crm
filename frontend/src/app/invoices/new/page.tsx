@@ -26,6 +26,7 @@ export default function NewInvoicePage() {
   const [selectedClientId, setSelectedClientId] = useState(clients[0]?.id || '');
   const [clientSearchTerm, setClientSearchTerm] = useState('');
   const [selectedQuoteId, setSelectedQuoteId] = useState('');
+  const [serviceSearchTerm, setServiceSearchTerm] = useState('');
 
   const nextInvNum = `${settings.invoicePrefix}${String(Date.now()).slice(-4)}`;
   const [invoiceNumber, setInvoiceNumber] = useState(nextInvNum);
@@ -75,31 +76,14 @@ export default function NewInvoicePage() {
   };
 
   // Line items
-  const [lineItems, setLineItems] = useState<DocumentLineItem[]>([
-    {
-      id: 'ili-1',
-      serviceName: services[0]?.serviceName || 'Social Media Management',
-      category: services[0]?.category,
-      description: services[0]?.description || 'Service deliverables',
-      sacCode: services[0]?.sacCode || '998311',
-      quantity: 1,
-      billingUnit: services[0]?.billingUnit || 'Per Month',
-      minPrice: services[0]?.minPrice || 20000,
-      defaultPrice: services[0]?.defaultPrice || 28000,
-      maxPrice: services[0]?.maxPrice || 40000,
-      selectedTier: 'DEFAULT',
-      negotiatedUnitPrice: services[0]?.defaultPrice || 28000,
-      isBelowMinWarning: false,
-      itemDiscountType: 'fixed',
-      itemDiscountValue: 0,
-      itemDiscountAmount: 0,
-      lineSubtotal: services[0]?.defaultPrice || 28000,
-      taxableAmount: services[0]?.defaultPrice || 28000,
-      gstRate: 18,
-      taxAmount: Math.round((services[0]?.defaultPrice || 28000) * 0.18),
-      lineTotal: Math.round((services[0]?.defaultPrice || 28000) * 1.18)
-    }
-  ]);
+  const [lineItems, setLineItems] = useState<DocumentLineItem[]>([]);
+
+  const filteredServices = services.filter(service => {
+    const query = serviceSearchTerm.trim().toLowerCase();
+    return !query ||
+      service.serviceName.toLowerCase().includes(query) ||
+      service.category.toLowerCase().includes(query);
+  });
 
   // Handle Quotation Import
   const handleImportQuote = (quoteId: string) => {
@@ -115,31 +99,61 @@ export default function NewInvoicePage() {
 
   // Add line item
   const handleAddLine = () => {
-    const srv = services[0];
     const newItem: DocumentLineItem = {
       id: `ili-${Date.now()}`,
-      serviceName: srv.serviceName,
-      category: srv.category,
-      description: srv.description,
-      sacCode: srv.sacCode,
+      serviceName: '',
+      category: '',
+      description: '',
+      sacCode: '',
       quantity: 1,
-      billingUnit: srv.billingUnit,
-      minPrice: srv.minPrice,
-      defaultPrice: srv.defaultPrice,
-      maxPrice: srv.maxPrice,
+      billingUnit: '',
+      minPrice: 0,
+      defaultPrice: 0,
+      maxPrice: 0,
       selectedTier: 'DEFAULT',
-      negotiatedUnitPrice: srv.defaultPrice,
+      negotiatedUnitPrice: 0,
       isBelowMinWarning: false,
       itemDiscountType: 'fixed',
       itemDiscountValue: 0,
       itemDiscountAmount: 0,
-      lineSubtotal: srv.defaultPrice,
-      taxableAmount: srv.defaultPrice,
-      gstRate: srv.gstRate,
-      taxAmount: Math.round(srv.defaultPrice * (srv.gstRate / 100)),
-      lineTotal: Math.round(srv.defaultPrice * (1 + srv.gstRate / 100))
+      lineSubtotal: 0,
+      taxableAmount: 0,
+      gstRate: 18,
+      taxAmount: 0,
+      lineTotal: 0
     };
     setLineItems(prev => [...prev, newItem]);
+  };
+
+  const handleServiceChange = (index: number, serviceId: string) => {
+    const service = services.find(item => item.id === serviceId);
+    if (!service) return;
+
+    setLineItems(prev => prev.map((item, i) => {
+      if (i !== index) return item;
+      const subtotal = item.quantity * service.defaultPrice;
+      const tax = Math.round(subtotal * (service.gstRate / 100));
+      return {
+        ...item,
+        serviceId: service.id,
+        serviceName: service.serviceName,
+        category: service.category,
+        description: service.description,
+        sacCode: service.sacCode,
+        billingUnit: service.billingUnit,
+        minPrice: service.minPrice,
+        defaultPrice: service.defaultPrice,
+        maxPrice: service.maxPrice,
+        selectedTier: 'DEFAULT',
+        negotiatedUnitPrice: service.defaultPrice,
+        isBelowMinWarning: false,
+        gstRate: service.gstRate,
+        lineSubtotal: subtotal,
+        taxableAmount: subtotal,
+        taxAmount: tax,
+        lineTotal: subtotal + tax
+      };
+    }));
   };
 
   const handlePriceChange = (index: number, val: number) => {
@@ -212,8 +226,8 @@ export default function NewInvoicePage() {
       }
     }
 
-    if (lineItems.length === 0) {
-      alert("Please add at least one line item.");
+    if (lineItems.length === 0 || lineItems.some(item => !item.serviceId)) {
+      alert("Please select a service for every line item.");
       return;
     }
 
@@ -418,6 +432,14 @@ export default function NewInvoicePage() {
               + Add Line Item
             </button>
           </div>
+          <input
+            type="search"
+            placeholder="Search services by name or category..."
+            value={serviceSearchTerm}
+            onChange={(e) => setServiceSearchTerm(e.target.value)}
+            style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12.5px', marginBottom: '0.5rem' }}
+          />
+          {services.length === 0 && <div style={{ fontSize: '12px', color: '#B45309' }}>Services are still loading or unavailable.</div>}
 
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
             <thead>
@@ -434,15 +456,19 @@ export default function NewInvoicePage() {
               {lineItems.map((item, idx) => (
                 <tr key={item.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
                   <td style={{ padding: '8px' }}>
-                    <input 
-                      type="text"
-                      value={item.serviceName}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setLineItems(prev => prev.map((it, i) => i === idx ? { ...it, serviceName: val } : it));
-                      }}
+                    <select
+                      value={item.serviceId || ''}
+                      onChange={(e) => handleServiceChange(idx, e.target.value)}
                       style={{ width: '100%', padding: '4px 6px', border: '1px solid #E5E7EB', borderRadius: '4px', fontWeight: 600 }}
-                    />
+                    >
+                      <option value="">-- Choose a service --</option>
+                      {filteredServices.map(service => (
+                        <option key={service.id} value={service.id}>
+                          [{service.category}] {service.serviceName}
+                        </option>
+                      ))}
+                    </select>
+                    {item.billingUnit && <div style={{ fontSize: '11px', color: '#737373', marginTop: '3px' }}>{item.billingUnit}</div>}
                   </td>
                   <td style={{ padding: '8px', width: '90px' }}>
                     <input 
@@ -462,7 +488,19 @@ export default function NewInvoicePage() {
                       value={item.quantity}
                       onChange={(e) => {
                         const qty = Number(e.target.value);
-                        setLineItems(prev => prev.map((it, i) => i === idx ? { ...it, quantity: qty, lineSubtotal: qty * it.negotiatedUnitPrice, taxableAmount: qty * it.negotiatedUnitPrice } : it));
+                        setLineItems(prev => prev.map((it, i) => {
+                          if (i !== idx) return it;
+                          const lineSubtotal = qty * it.negotiatedUnitPrice;
+                          const taxAmount = Math.round(lineSubtotal * (it.gstRate / 100));
+                          return {
+                            ...it,
+                            quantity: qty,
+                            lineSubtotal,
+                            taxableAmount: lineSubtotal,
+                            taxAmount,
+                            lineTotal: lineSubtotal + taxAmount
+                          };
+                        }));
                       }}
                       style={{ width: '100%', padding: '4px 6px', border: '1px solid #E5E7EB', borderRadius: '4px', textAlign: 'center' }}
                     />
