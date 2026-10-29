@@ -48,18 +48,14 @@ The project is currently in an early implementation phase. The frontend has a br
 │   │   │   ├── database.py       # Async SQLAlchemy engine and sessions
 │   │   │   ├── exceptions.py     # API exception definitions and handlers
 │   │   │   └── logging.py        # Application logging configuration
+│   │   ├── models/
+│   │   │   ├── __init__.py
+│   │   │   ├── crm.py            # Relational database models for CRM
+│   │   │   └── user.py           # User authentication and credentials model
 │   │   ├── modules/
 │   │   │   ├── __init__.py
-│   │   │   ├── auth/__init__.py
-│   │   │   ├── clients/__init__.py
-│   │   │   ├── dashboard/__init__.py
-│   │   │   ├── expenses/__init__.py
-│   │   │   ├── invoices/__init__.py
-│   │   │   ├── payments/__init__.py
-│   │   │   ├── quotations/__init__.py
-│   │   │   ├── reports/__init__.py
-│   │   │   ├── services/__init__.py
-│   │   │   └── settings/__init__.py
+│   │   │   ├── auth/             # Authentication & session router
+│   │   │   └── crm/              # Unified CRM domain router & schemas
 │   │   ├── __init__.py
 │   │   ├── api.py                # Versioned API router and health endpoint
 │   │   └── main.py               # FastAPI application factory
@@ -76,11 +72,7 @@ The project is currently in an early implementation phase. The frontend has a br
 │   └── requirements.txt          # Python dependencies
 ├── frontend/
 │   ├── public/
-│   │   ├── file.svg
-│   │   ├── globe.svg
-│   │   ├── next.svg
-│   │   ├── vercel.svg
-│   │   └── window.svg
+│   │   └── hexns_logo.svg
 │   ├── src/
 │   │   ├── app/
 │   │   │   ├── clients/page.tsx
@@ -175,22 +167,13 @@ At present, the frontend includes seed data and client-side behavior. The API cl
 - Alembic environment configured for asynchronous migrations
 - Initial health endpoint tests
 
-### Not implemented yet
+### Implemented & Active
 
-The following module boundaries exist, but currently contain only package initialization files:
-
-- Authentication
-- Clients
-- Dashboard
-- Expenses
-- Invoices
-- Payments
-- Quotations
-- Reports
-- Services
-- Settings
-
-The backend does not yet have domain models, schemas, repositories, services, authenticated routes, or migration revisions. Consequently, the database connection and schema have not yet been validated end to end.
+- Authentication module with JWT tokens and Argon2 password hashing
+- Unified CRM domain module (backend/app/modules/crm/) and SQLAlchemy models (backend/app/models/crm.py)
+- Alembic database migration revisions
+- Endpoints for Clients, Services, Packages, Quotations, Invoices, Payments, Expenses, Retainers, and Reports
+- Automated test suite covering foundation, health, and business logic.
 
 ## 6. Running the project locally
 
