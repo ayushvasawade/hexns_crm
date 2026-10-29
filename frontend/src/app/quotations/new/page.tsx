@@ -49,37 +49,13 @@ export default function QuotationBuilderPage() {
   const [salesExecutive, setSalesExecutive] = useState('Vikram Malhotra');
 
   // Stepper 3: Line Items (Selected Services & Packages)
-  const [selectedServiceToAdd, setSelectedServiceToAdd] = useState(services[0]?.id || '');
+  const [selectedServiceToAdd, setSelectedServiceToAdd] = useState('');
+  const [serviceSearchTerm, setServiceSearchTerm] = useState('');
   const [selectedPackageToAdd, setSelectedPackageToAdd] = useState(packages[0]?.id || '');
   const [customItemName, setCustomItemName] = useState('');
   const [customItemPrice, setCustomItemPrice] = useState(10000);
 
-  const [lineItems, setLineItems] = useState<DocumentLineItem[]>([
-    {
-      id: 'li-init-1',
-      serviceId: services[0]?.id,
-      serviceName: services[0]?.serviceName || 'Instagram Management',
-      category: services[0]?.category || 'Social Media Management',
-      description: services[0]?.description || 'Complete feed curation and reel production',
-      sacCode: services[0]?.sacCode || '998311',
-      quantity: 1,
-      billingUnit: services[0]?.billingUnit || 'Per Month',
-      minPrice: services[0]?.minPrice || 20000,
-      defaultPrice: services[0]?.defaultPrice || 28000,
-      maxPrice: services[0]?.maxPrice || 40000,
-      selectedTier: 'DEFAULT',
-      negotiatedUnitPrice: services[0]?.defaultPrice || 28000,
-      isBelowMinWarning: false,
-      itemDiscountType: 'fixed',
-      itemDiscountValue: 0,
-      itemDiscountAmount: 0,
-      lineSubtotal: services[0]?.defaultPrice || 28000,
-      taxableAmount: services[0]?.defaultPrice || 28000,
-      gstRate: 18,
-      taxAmount: Math.round((services[0]?.defaultPrice || 28000) * 0.18),
-      lineTotal: Math.round((services[0]?.defaultPrice || 28000) * 1.18)
-    }
-  ]);
+  const [lineItems, setLineItems] = useState<DocumentLineItem[]>([]);
 
   // Stepper 4: Discounts and GST
   const [documentDiscountType, setDocumentDiscountType] = useState<'percentage' | 'fixed'>('fixed');
@@ -119,6 +95,15 @@ export default function QuotationBuilderPage() {
       c.mobile.includes(q)
     );
   }, [clients, clientSearchTerm]);
+
+  const filteredServices = useMemo(() => {
+    const query = serviceSearchTerm.trim().toLowerCase();
+    if (!query) return services;
+    return services.filter(service =>
+      service.serviceName.toLowerCase().includes(query) ||
+      service.category.toLowerCase().includes(query)
+    );
+  }, [services, serviceSearchTerm]);
 
   // Check if an exact match already exists
   const hasExactClientMatch = useMemo(() => {
@@ -187,7 +172,10 @@ export default function QuotationBuilderPage() {
   // Handle adding service
   const handleAddServiceItem = () => {
     const srv = services.find(s => s.id === selectedServiceToAdd);
-    if (!srv) return;
+    if (!srv) {
+      alert('Please choose a service before adding it.');
+      return;
+    }
 
     const newItem: DocumentLineItem = {
       id: `li-${Date.now()}`,
@@ -213,9 +201,10 @@ export default function QuotationBuilderPage() {
       taxAmount: Math.round(srv.defaultPrice * (srv.gstRate / 100)),
       lineTotal: Math.round(srv.defaultPrice * (1 + srv.gstRate / 100))
     };
-
+
     setLineItems(prev => [...prev, newItem]);
-  };
+    setSelectedServiceToAdd('');
+  };
 
   // Handle adding package
   const handleAddPackageItem = () => {
@@ -1133,19 +1122,29 @@ export default function QuotationBuilderPage() {
           }}>
             <div>
               <label style={{ fontSize: '11px', fontWeight: 600, color: '#4B5563', textTransform: 'uppercase' }}>
-                Pick from 16 FRS Catalogue Verticals
+                Pick from service catalogue
               </label>
-              <select 
-                value={selectedServiceToAdd}
-                onChange={(e) => setSelectedServiceToAdd(e.target.value)}
-                style={{ width: '100%', padding: '0.45rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '2px', fontSize: '13px' }}
-              >
-                {services.map(s => (
-                  <option key={s.id} value={s.id}>
-                    [{s.category}] {s.serviceName} — Default: {formatINR(s.defaultPrice)}
-                  </option>
-                ))}
-              </select>
+              <input
+                type="search"
+                placeholder="Search service or category..."
+                value={serviceSearchTerm}
+                onChange={(e) => setServiceSearchTerm(e.target.value)}
+                style={{ width: '100%', padding: '0.45rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '2px', fontSize: '13px' }}
+              />
+              <select 
+                value={selectedServiceToAdd}
+                onChange={(e) => setSelectedServiceToAdd(e.target.value)}
+                style={{ width: '100%', padding: '0.45rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '2px', fontSize: '13px' }}
+              >
+                <option value="">-- Choose a service --</option>
+                {filteredServices.map(s => (
+                  <option key={s.id} value={s.id}>
+                    [{s.category}] {s.serviceName} — Default: {formatINR(s.defaultPrice)}
+                  </option>
+                ))}
+              </select>
+              {services.length === 0 && <span style={{ fontSize: '12px', color: '#B45309' }}>Services are still loading or unavailable.</span>}
+              {services.length > 0 && filteredServices.length === 0 && <span style={{ fontSize: '12px', color: '#B45309' }}>No services match this search.</span>}
             </div>
 
             <div>
