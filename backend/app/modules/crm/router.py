@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Annotated, Any, TypeVar
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import delete, func, select
+from sqlalchemy import case, delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -27,7 +27,7 @@ from app.modules.crm.schemas import (
     PackageUpdate, PaymentCreate, PaymentResponse, PaymentUpdate, QuotationCreate,
     QuotationResponse, QuotationUpdate, RetainerCreate, RetainerResponse,
     RetainerUpdate, ServiceCreate, ServiceResponse, ServiceUpdate,
-    LineItemInput,
+    LineItemInput, FinancialMetricsResponse, DashboardSummaryResponse,
 )
 
 router = APIRouter()
@@ -823,3 +823,206 @@ async def update_company_settings(payload: CompanySettingsUpdate, db: Db, user: 
     await commit_or_conflict(db)
     await db.refresh(item)
     return item
+
+
+
+def resolve_date_range(
+    preset: str | None,
+    start_date: date | None,
+    end_date: date | None,
+) -> tuple[date | None, date | None]:
+    if start_date or end_date:
+        return start_date, end_date
+    if not preset or preset == "All Time":
+        return None, None
+
+    today = date.today()
+    if preset == "This Month":
+        start = today.replace(day=1)
+        next_month = today.replace(day=28) + timedelta(days=4)
+        end = next_month - timedelta(days=next_month.day)
+        return start, end
+    elif preset == "Last Month":
+        first_of_this_month = today.replace(day=1)
+        last_day_of_last_month = first_of_this_month - timedelta(days=1)
+        first_of_last_month = last_day_of_last_month.replace(day=1)
+        return first_of_last_month, last_day_of_last_month
+    elif preset in ("This Quarter", "This Quarter (Q3 2026)"):
+        quarter = (today.month - 1) // 3
+        start = today.replace(month=quarter * 3 + 1, day=1)
+        end_month = quarter * 3 + 3
+        next_month = today.replace(month=end_month, day=28) + timedelta(days=4)
+        end = next_month - timedelta(days=next_month.day)
+        return start, end
+    elif preset in ("This Financial Year (FY 26-27)", "FY 2026-27 (YTD)"):
+        if today.month >= 4:
+            start = date(today.year, 4, 1)
+            end = date(today.year + 1, 3, 31)
+        else:
+            start = date(today.year - 1, 4, 1)
+            end = date(today.year, 3, 31)
+        return start, end
+    elif preset == "Last 30 Days":
+        return today - timedelta(days=30), today
+
+    return None, None
+
+
+@router.get("/analytics/financial-metrics", response_model=FinancialMetricsResponse)
+async def get_financial_metrics(
+    db: Db,
+    user: CurrentUser,
+    preset: str | None = Query(None),
+    start_date: date | None = Query(None),
+    end_date: date | None = Query(None),
+) -> FinancialMetricsResponse:
+    calc_start, calc_end = resolve_date_range(preset, start_date, end_date)
+
+    inv_query = select(
+        func.coalesce(func.sum(Invoice.grand_total), 0).label("total_invoiced_gross"),
+        func.coalesce(func.sum(Invoice.total_taxable_amount), 0).label("total_taxable_revenue"),
+        func.coalesce(func.sum(Invoice.cgst_amount + Invoice.sgst_amount + Invoice.igst_amount), 0).label("total_gst_output"),
+        func.coalesce(func.sum(Invoice.amount_paid), 0).label("total_collections"),
+        func.coalesce(func.sum(Invoice.balance_due), 0).label("total_outstanding"),
+        func.coalesce(
+            func.sum(case((Invoice.status == "Overdue", Invoice.balance_due), else_=0)),
+            0,
+        ).label("overdue_amount"),
+    ).where(Invoice.owner_id == user.id)
+
+    if calc_start:
+        inv_query = inv_query.where(Invoice.invoice_date >= calc_start)
+    if calc_end:
+        inv_query = inv_query.where(Invoice.invoice_date <= calc_end)
+
+    inv_res = (await db.execute(inv_query)).one()
+
+    quote_query = select(
+        func.coalesce(func.sum(Quotation.grand_total), 0)
+    ).where(
+        Quotation.owner_id == user.id,
+        Quotation.status.in_(["Accepted", "Converted"]),
+    )
+    if calc_start:
+        quote_query = quote_query.where(Quotation.quotation_date >= calc_start)
+    if calc_end:
+        quote_query = quote_query.where(Quotation.quotation_date <= calc_end)
+
+    total_sales_won = (await db.scalar(quote_query)) or Decimal("0")
+
+    exp_query = select(
+        func.coalesce(func.sum(Expense.amount), 0).label("total_operating_expenses"),
+        func.coalesce(func.sum(Expense.tax_amount), 0).label("input_tax_credit"),
+        func.coalesce(
+            func.sum(
+                case(
+                    (
+                        or_(
+                            Expense.category.in_([
+                                "Employee salaries",
+                                "Employee reimbursements",
+                                "Employer-side contributions (PF, ESIC, Insurance)",
+                            ]),
+                            Expense.is_reimbursement == True,
+                        ),
+                        Expense.amount,
+                    ),
+                    else_=0,
+                )
+            ),
+            0,
+        ).label("employee_expenses"),
+        func.coalesce(
+            func.sum(
+                case(
+                    (
+                        or_(
+                            Expense.category.in_([
+                                "Contractor and freelancer payments",
+                                "Shoot expenses and equipment rentals",
+                            ]),
+                            Expense.project_id.isnot(None),
+                        ),
+                        Expense.amount,
+                    ),
+                    else_=0,
+                )
+            ),
+            0,
+        ).label("direct_project_costs"),
+    ).where(Expense.owner_id == user.id)
+
+    if calc_start:
+        exp_query = exp_query.where(Expense.expense_date >= calc_start)
+    if calc_end:
+        exp_query = exp_query.where(Expense.expense_date <= calc_end)
+
+    exp_res = (await db.execute(exp_query)).one()
+
+    taxable_rev = Decimal(str(inv_res.total_taxable_revenue))
+    direct_costs = Decimal(str(exp_res.direct_project_costs))
+    op_expenses = Decimal(str(exp_res.total_operating_expenses))
+
+    gross_profit = taxable_rev - direct_costs
+    gross_margin_percent = int(round((gross_profit / taxable_rev) * 100)) if taxable_rev > 0 else 0
+
+    net_profit = taxable_rev - op_expenses
+    net_margin_percent = int(round((net_profit / taxable_rev) * 100)) if taxable_rev > 0 else 0
+
+    return FinancialMetricsResponse(
+        total_sales_won=Decimal(str(total_sales_won)),
+        total_invoiced_gross=Decimal(str(inv_res.total_invoiced_gross)),
+        total_taxable_revenue=taxable_rev,
+        total_gst_output=Decimal(str(inv_res.total_gst_output)),
+        total_collections=Decimal(str(inv_res.total_collections)),
+        total_outstanding=Decimal(str(inv_res.total_outstanding)),
+        overdue_amount=Decimal(str(inv_res.overdue_amount)),
+        total_operating_expenses=op_expenses,
+        employee_expenses=Decimal(str(exp_res.employee_expenses)),
+        direct_project_costs=direct_costs,
+        input_tax_credit=Decimal(str(exp_res.input_tax_credit)),
+        gross_profit=gross_profit,
+        gross_margin_percent=gross_margin_percent,
+        net_profit=net_profit,
+        net_margin_percent=net_margin_percent,
+    )
+
+
+@router.get("/analytics/dashboard-summary", response_model=DashboardSummaryResponse)
+async def get_dashboard_summary(db: Db, user: CurrentUser) -> DashboardSummaryResponse:
+    active_clients = await db.scalar(
+        select(func.count(Client.id)).where(Client.owner_id == user.id, Client.status == "Active")
+    ) or 0
+
+    quote_res = (await db.execute(
+        select(
+            func.count(Quotation.id),
+            func.coalesce(func.sum(Quotation.grand_total), 0),
+        ).where(
+            Quotation.owner_id == user.id,
+            Quotation.status.in_(["Draft", "Sent"]),
+        )
+    )).one()
+
+    inv_res = (await db.execute(
+        select(
+            func.coalesce(func.sum(case((Invoice.balance_due > 0, 1), else_=0)), 0),
+            func.coalesce(func.sum(Invoice.balance_due), 0),
+            func.coalesce(func.sum(case((Invoice.status == "Overdue", 1), else_=0)), 0),
+            func.coalesce(func.sum(case((Invoice.status == "Overdue", Invoice.balance_due), else_=0)), 0),
+            func.coalesce(func.sum(Invoice.grand_total), 0),
+            func.coalesce(func.sum(Invoice.amount_paid), 0),
+        ).where(Invoice.owner_id == user.id)
+    )).one()
+
+    return DashboardSummaryResponse(
+        active_clients_count=active_clients,
+        pending_quotations_count=quote_res[0],
+        pending_quotations_value=Decimal(str(quote_res[1])),
+        unpaid_invoices_count=inv_res[0],
+        unpaid_invoices_value=Decimal(str(inv_res[1])),
+        overdue_invoices_count=inv_res[2],
+        overdue_invoices_value=Decimal(str(inv_res[3])),
+        total_revenue_ytd=Decimal(str(inv_res[4])),
+        total_collections_ytd=Decimal(str(inv_res[5])),
+    )

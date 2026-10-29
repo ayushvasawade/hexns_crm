@@ -397,3 +397,27 @@ export const settingsApi = {
       body: JSON.stringify(data),
     }),
 };
+
+
+export const analyticsApi = {
+  getFinancialMetrics: (params?: { preset?: string; start_date?: string; end_date?: string }) =>
+    fetchApi<any>('/analytics/financial-metrics', {
+      method: 'GET',
+      params,
+    }),
+
+  getDashboardSummary: () =>
+    fetchApi<{
+      activeClientsCount: number;
+      pendingQuotationsCount: number;
+      pendingQuotationsValue: number;
+      unpaidInvoicesCount: number;
+      unpaidInvoicesValue: number;
+      overdueInvoicesCount: number;
+      overdueInvoicesValue: number;
+      totalRevenueYtd: number;
+      totalCollectionsYtd: number;
+    }>('/analytics/dashboard-summary', {
+      method: 'GET',
+    }),
+};

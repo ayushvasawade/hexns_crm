@@ -29,6 +29,7 @@ import {
   expensesApi,
   retainersApi,
   settingsApi,
+  analyticsApi,
 } from '../lib/api';
 import {
   adaptClient,
@@ -120,6 +121,8 @@ interface CrmContextType {
   updateRetainer: (id: string, ret: Partial<Retainer>) => Promise<void>;
   deleteRetainer: (id: string) => Promise<void>;
 
+  getFinancialMetrics: (params?: { preset?: string; start_date?: string; end_date?: string }) => Promise<any>;
+  getDashboardSummary: () => Promise<any>;
   updateSettings: (newSettings: Partial<CompanySettings>) => Promise<void>;
   clearAllData: () => void;
 }
@@ -706,6 +709,24 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // SETTINGS ACTIONS
   // -----------------------------------------------------------
 
+  const getFinancialMetrics = useCallback(async (params?: { preset?: string; start_date?: string; end_date?: string }) => {
+    try {
+      return await analyticsApi.getFinancialMetrics(params);
+    } catch (err) {
+      console.warn('Failed to load server financial metrics, falling back to client calculations', err);
+      return null;
+    }
+  }, []);
+
+  const getDashboardSummary = useCallback(async () => {
+    try {
+      return await analyticsApi.getDashboardSummary();
+    } catch (err) {
+      console.warn('Failed to load server dashboard summary, falling back to client calculations', err);
+      return null;
+    }
+  }, []);
+
   const updateSettings = async (newSettings: Partial<CompanySettings>) => {
     const payload = toCompanySettingsPayload(newSettings);
     const res = await settingsApi.updateCompany(payload);
@@ -764,6 +785,8 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addRetainer,
       updateRetainer,
       deleteRetainer,
+      getFinancialMetrics,
+      getDashboardSummary,
       updateSettings,
       clearAllData
     }}>

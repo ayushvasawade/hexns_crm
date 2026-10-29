@@ -550,3 +550,33 @@ class CompanySettingsResponse(CompanySettingsBase):
     id: UUID
     created_at: datetime
     updated_at: datetime
+
+
+class FinancialMetricsResponse(ApiSchema):
+    total_sales_won: Decimal
+    total_invoiced_gross: Decimal
+    total_taxable_revenue: Decimal
+    total_gst_output: Decimal
+    total_collections: Decimal
+    total_outstanding: Decimal
+    overdue_amount: Decimal
+    total_operating_expenses: Decimal
+    employee_expenses: Decimal
+    direct_project_costs: Decimal
+    input_tax_credit: Decimal
+    gross_profit: Decimal
+    gross_margin_percent: int
+    net_profit: Decimal
+    net_margin_percent: int
+
+
+class DashboardSummaryResponse(ApiSchema):
+    active_clients_count: int
+    pending_quotations_count: int
+    pending_quotations_value: Decimal
+    unpaid_invoices_count: int
+    unpaid_invoices_value: Decimal
+    overdue_invoices_count: int
+    overdue_invoices_value: Decimal
+    total_revenue_ytd: Decimal
+    total_collections_ytd: Decimal
