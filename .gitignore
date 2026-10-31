@@ -4,6 +4,11 @@
 !.env.example
 *.env
 
+# Runtime & Process IDs
+.run/
+logs/
+*.pid
+
 # Python / Virtual Environment
 __pycache__/
 *.py[cod]
