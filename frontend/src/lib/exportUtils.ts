@@ -187,16 +187,18 @@ export function generateQuotationPDF(quotation: Quotation, _settings: CompanySet
   doc.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
 
   let currentY = finalY;
-  const hasDiscount = quotation.documentDiscountAmount > 0;
-  const subtotalBeforeDiscount = quotation.totalLineSubtotal || (quotation.totalTaxableAmount + (quotation.documentDiscountAmount || 0));
+  const docDiscount = quotation.documentDiscountAmount ?? (quotation as any).discountAmount ?? 0;
+  const hasDiscount = docDiscount > 0;
+  const subtotalBeforeDiscount = quotation.totalLineSubtotal ?? (quotation as any).taxableSubtotal ?? ((quotation.totalTaxableAmount || 0) + docDiscount);
+  const taxableSubtotal = hasDiscount ? subtotalBeforeDiscount : (quotation.totalTaxableAmount ?? (quotation as any).taxableAmount ?? (quotation.grandTotal - (quotation.cgstAmount || 0) - (quotation.sgstAmount || 0) - (quotation.igstAmount || 0)));
 
   doc.text("Taxable Subtotal:", totalsX, currentY);
-  doc.text(formatINRWithDecimals(hasDiscount ? subtotalBeforeDiscount : quotation.totalTaxableAmount), valueX, currentY, { align: 'right' });
+  doc.text(formatINRWithDecimals(taxableSubtotal), valueX, currentY, { align: 'right' });
 
   if (hasDiscount) {
     currentY += 5;
     doc.text("Document Discount:", totalsX, currentY);
-    doc.text(formatINRWithDecimals(-quotation.documentDiscountAmount), valueX, currentY, { align: 'right' });
+    doc.text(formatINRWithDecimals(-docDiscount), valueX, currentY, { align: 'right' });
   }
 
   if (quotation.isInterState) {
@@ -353,16 +355,20 @@ export function generateInvoicePDF(invoice: Invoice, settings: CompanySettings) 
   doc.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
 
   let currentY = finalY;
-  const hasDiscount = invoice.documentDiscountAmount > 0;
-  const subtotalBeforeDiscount = invoice.totalLineSubtotal || (invoice.totalTaxableAmount + (invoice.documentDiscountAmount || 0));
+  const docDiscount = invoice.documentDiscountAmount ?? (invoice as any).discountAmount ?? 0;
+  const hasDiscount = docDiscount > 0;
+  const subtotalBeforeDiscount = invoice.totalLineSubtotal ?? (invoice as any).taxableSubtotal ?? ((invoice.totalTaxableAmount || 0) + docDiscount);
+  const taxableSubtotal = hasDiscount ? subtotalBeforeDiscount : (invoice.totalTaxableAmount ?? (invoice as any).taxableAmount ?? (invoice.grandTotal - (invoice.cgstAmount || 0) - (invoice.sgstAmount || 0) - (invoice.igstAmount || 0)));
+  const amountPaid = invoice.amountPaid ?? (invoice as any).amountReceived ?? 0;
+  const balanceDue = invoice.balanceDue ?? (invoice as any).balanceOutstanding ?? (invoice.grandTotal - amountPaid);
 
   doc.text("Taxable Subtotal:", totalsX, currentY);
-  doc.text(formatINRWithDecimals(hasDiscount ? subtotalBeforeDiscount : invoice.totalTaxableAmount), valueX, currentY, { align: 'right' });
+  doc.text(formatINRWithDecimals(taxableSubtotal), valueX, currentY, { align: 'right' });
 
   if (hasDiscount) {
     currentY += 5;
     doc.text("Document Discount:", totalsX, currentY);
-    doc.text(formatINRWithDecimals(-invoice.documentDiscountAmount), valueX, currentY, { align: 'right' });
+    doc.text(formatINRWithDecimals(-docDiscount), valueX, currentY, { align: 'right' });
   }
 
   if (invoice.isInterState) {
@@ -391,12 +397,12 @@ export function generateInvoicePDF(invoice: Invoice, settings: CompanySettings) 
   doc.setFontSize(8.5);
   doc.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
   doc.text("Amount Received:", totalsX, grandTotalY + 8);
-  doc.text(formatINRWithDecimals(invoice.amountPaid), valueX, grandTotalY + 8, { align: 'right' });
+  doc.text(formatINRWithDecimals(amountPaid), valueX, grandTotalY + 8, { align: 'right' });
 
   doc.setFont(PDF_FONT, 'bold');
-  doc.setTextColor(invoice.balanceDue > 0 ? 220 : 21, invoice.balanceDue > 0 ? 38 : 128, invoice.balanceDue > 0 ? 38 : 61);
+  doc.setTextColor(balanceDue > 0 ? 220 : 21, balanceDue > 0 ? 38 : 128, balanceDue > 0 ? 38 : 61);
   doc.text("Balance Outstanding:", totalsX, grandTotalY + 14);
-  doc.text(formatINRWithDecimals(invoice.balanceDue), valueX, grandTotalY + 14, { align: 'right' });
+  doc.text(formatINRWithDecimals(balanceDue), valueX, grandTotalY + 14, { align: 'right' });
 
   doc.setFont(PDF_FONT, 'normal');
   doc.setFontSize(8);
