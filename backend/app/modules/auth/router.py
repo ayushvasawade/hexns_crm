@@ -25,7 +25,10 @@ async def login(
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return TokenResponse(access_token=create_access_token(user.id))
+    return TokenResponse(
+        access_token=create_access_token(user.id),
+        user=UserResponse.model_validate(user),
+    )
 
 
 @router.get("/me", response_model=UserResponse)

@@ -167,7 +167,11 @@ export async function fetchApi<T>(endpoint: string, options: FetchOptions = {}):
 
 export const authApi = {
   login: (credentials: { email: string; password: string }) =>
-    fetchApi<{ access_token: string; token_type: string }>('/auth/login', {
+    fetchApi<{
+      access_token: string;
+      token_type: string;
+      user?: { id: string; email: string; full_name: string; is_active: boolean };
+    }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
       skipAuth: true,

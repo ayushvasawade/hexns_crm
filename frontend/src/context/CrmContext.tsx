@@ -147,6 +147,12 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [notifications, setNotifications] = useState<Array<{ id: string; title: string; time: string; read: boolean }>>([]);
   const loadedResources = useRef(new Set<string>());
   const inFlightLoad = useRef<Promise<void> | null>(null);
+  const clientsRef = useRef<Client[]>(clients);
+  useEffect(() => { clientsRef.current = clients; }, [clients]);
+  const quotationsRef = useRef<Quotation[]>(quotations);
+  useEffect(() => { quotationsRef.current = quotations; }, [quotations]);
+  const invoicesRef = useRef<Invoice[]>(invoices);
+  useEffect(() => { invoicesRef.current = invoices; }, [invoices]);
 
   // Lookup maps for fast relational resolution
   const clientMap = useMemo(() => {
@@ -266,7 +272,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const loadedClients: Client[] = responses.clients
         ? (responses.clients.items || []).map(adaptClient)
-        : clients;
+        : clientsRef.current;
       const localClientMap: Record<string, Client> = {};
       loadedClients.forEach(client => { localClientMap[client.id] = client; });
       if (responses.clients) setClients(loadedClients);
@@ -276,7 +282,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const loadedQuotations: Quotation[] = responses.quotations
         ? (responses.quotations.items || []).map((q: any) => adaptQuotation(q, localClientMap))
-        : quotations;
+        : quotationsRef.current;
       if (responses.quotations) setQuotations(loadedQuotations);
 
       const localQuoteMap: Record<string, Quotation> = {};
@@ -284,7 +290,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const loadedInvoices: Invoice[] = responses.invoices
         ? (responses.invoices.items || []).map((inv: any) => adaptInvoice(inv, localClientMap, localQuoteMap))
-        : invoices;
+        : invoicesRef.current;
       if (responses.invoices) setInvoices(loadedInvoices);
 
       const localInvoiceMap: Record<string, Invoice> = {};
@@ -335,7 +341,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     inFlightLoad.current = loadPromise;
     await loadPromise;
     inFlightLoad.current = null;
-  }, [clients, invoices, isAuthenticated, pathname, quotations, resourcesForPath]);
+  }, [isAuthenticated, pathname, resourcesForPath]);
 
   useEffect(() => {
     loadAllData();

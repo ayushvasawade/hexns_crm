@@ -55,6 +55,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let isMounted = true;
 
     async function restoreSession() {
+      // If user state is already in memory (e.g. from login), skip redundant validation
+      if (user) {
+        if (isMounted) setIsLoading(false);
+        return;
+      }
+
       const storedToken = getAuthToken();
       if (!storedToken) {
         if (isMounted) {
@@ -91,7 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       isMounted = false;
     };
-  }, [logout, pathname, router]);
+  }, [logout]);
 
   // Route protection
   useEffect(() => {
@@ -112,13 +118,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAuthToken(result.access_token);
       setToken(result.access_token);
 
-      const me = await authApi.getMe();
-      const authUser: AuthUser = {
-        id: me.id,
-        email: me.email,
-        fullName: me.full_name,
-        isActive: me.is_active,
-      };
+      let authUser: AuthUser;
+      if (result.user) {
+        authUser = {
+          id: result.user.id,
+          email: result.user.email,
+          fullName: result.user.full_name,
+          isActive: result.user.is_active,
+        };
+      } else {
+        const me = await authApi.getMe();
+        authUser = {
+          id: me.id,
+          email: me.email,
+          fullName: me.full_name,
+          isActive: me.is_active,
+        };
+      }
       setUser(authUser);
       setIsLoading(false);
       router.push('/');
