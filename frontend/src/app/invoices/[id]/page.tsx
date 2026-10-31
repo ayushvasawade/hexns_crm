@@ -90,7 +90,14 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button 
             type="button"
-            onClick={() => generateInvoicePDF(invoice, settings)}
+            onClick={() => {
+              try {
+                generateInvoicePDF(invoice, settings);
+              } catch (error: unknown) {
+                const message = error instanceof Error ? error.message : 'Failed to generate invoice PDF';
+                alert(message);
+              }
+            }}
             style={{
               padding: '0.45rem 0.85rem',
               border: '1px solid #E5E7EB',
@@ -198,15 +205,17 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         </div>
 
         {/* Invoice Items Table */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px', textAlign: 'left' }}>
+        <table className="invoice-items-table" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '12.5px', textAlign: 'left' }}>
           <thead>
             <tr style={{ backgroundColor: '#F9FAFB', borderTop: '1px solid #171717', borderBottom: '1px solid #171717' }}>
-              <th style={{ padding: '8px' }}>#</th>
-              <th style={{ padding: '8px' }}>Description of Service</th>
-              <th style={{ padding: '8px' }}>SAC</th>
-              <th style={{ padding: '8px', textAlign: 'center' }}>Qty</th>
-              <th style={{ padding: '8px', textAlign: 'right' }}>Rate (₹)</th>
-              <th style={{ padding: '8px', textAlign: 'right' }}>Taxable Value (₹)</th>
+              <th style={{ width: '4%', padding: '8px' }}>#</th>
+              <th style={{ width: '30%', padding: '8px' }}>Description of Service</th>
+              <th style={{ width: '9%', padding: '8px' }}>SAC</th>
+              <th style={{ width: '9%', padding: '8px', textAlign: 'center' }}>Qty / Unit</th>
+              <th style={{ width: '14%', padding: '8px', textAlign: 'right' }}>Rate (₹)</th>
+              <th style={{ width: '14%', padding: '8px', textAlign: 'right' }}>Taxable (₹)</th>
+              <th style={{ width: '7%', padding: '8px', textAlign: 'center' }}>GST</th>
+              <th style={{ width: '13%', padding: '8px', textAlign: 'right' }}>Amount (₹)</th>
             </tr>
           </thead>
           <tbody>
@@ -223,13 +232,17 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                 <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>
                   {formatINR(item.taxableAmount)}
                 </td>
+                <td style={{ padding: '8px', textAlign: 'center' }}>{item.gstRate}%</td>
+                <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>
+                  {formatINR(item.lineTotal)}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
 
         {/* Summary & Amount in Words */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div className="print-avoid-break" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div style={{ maxWidth: '420px', fontSize: '12px', color: '#4B5563' }}>
             <span style={{ fontWeight: 700, textTransform: 'uppercase', color: '#171717' }}>Total in Words:</span>
             <div style={{ fontWeight: 700, color: '#171717', fontSize: '12.5px', marginTop: '2px' }}>
@@ -243,8 +256,14 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           <div style={{ width: '280px', display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '13px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>Taxable Subtotal:</span>
-              <span style={{ fontWeight: 600 }}>{formatINR(invoice.totalTaxableAmount)}</span>
+              <span style={{ fontWeight: 600 }}>{formatINR(invoice.documentDiscountAmount > 0 ? (invoice.totalLineSubtotal || (invoice.totalTaxableAmount + invoice.documentDiscountAmount)) : invoice.totalTaxableAmount)}</span>
             </div>
+            {invoice.documentDiscountAmount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#DC2626' }}>
+                <span>Discount Amount:</span>
+                <span style={{ fontWeight: 600 }}>- {formatINR(invoice.documentDiscountAmount)}</span>
+              </div>
+            )}
             {!invoice.isInterState ? (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
@@ -283,7 +302,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             <span style={{ fontSize: '11px', fontWeight: 700, color: '#737373', textTransform: 'uppercase' }}>
               Settlement History
             </span>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginTop: '4px' }}>
+            <table className="payment-history-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginTop: '4px' }}>
               <thead>
                 <tr style={{ background: '#F9FAFB' }}>
                   <th style={{ padding: '4px 8px', textAlign: 'left' }}>Receipt #</th>
@@ -309,7 +328,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         )}
 
         {/* Bank Settlement & Signature */}
-        <div style={{
+        <div className="print-avoid-break" style={{
           borderTop: '1px solid #E5E7EB',
           paddingTop: '1rem',
           display: 'flex',

@@ -36,6 +36,64 @@ def test_document_totals_use_decimal_and_split_gst():
     assert line.taxable_amount == Decimal("900.00")
 
 
+
+
+def test_document_totals_prompt_scenarios():
+    class Line:
+        taxable_amount = Decimal("10000")
+        gst_rate = Decimal("18")
+        tax_amount = Decimal("0")
+        line_total = Decimal("10000")
+
+    values = {
+        "subtotal": Decimal("10000"),
+        "item_discount": Decimal("0"),
+        "taxable_before_document_discount": Decimal("10000"),
+    }
+
+    # 1. No discount
+    line1 = Line()
+    totals1 = apply_document_totals([line1], values, "percentage", Decimal("0"), False)
+    assert totals1["document_discount_amount"] == Decimal("0.00")
+    assert totals1["total_taxable_amount"] == Decimal("10000.00")
+    assert totals1["cgst_amount"] == Decimal("900.00")
+    assert totals1["sgst_amount"] == Decimal("900.00")
+    assert totals1["grand_total"] == Decimal("11800.00")
+
+    # 2. 10% discount (Prompt example: Subtotal: 10,000, Disc: 1,000, Taxable: 9,000, CGST: 810, SGST: 810, Total: 10,620)
+    line2 = Line()
+    totals2 = apply_document_totals([line2], values, "percentage", Decimal("10"), False)
+    assert totals2["document_discount_amount"] == Decimal("1000.00")
+    assert totals2["total_taxable_amount"] == Decimal("9000.00")
+    assert totals2["cgst_amount"] == Decimal("810.00")
+    assert totals2["sgst_amount"] == Decimal("810.00")
+    assert totals2["grand_total"] == Decimal("10620.00")
+
+    # 3. Fixed ₹500 discount (Prompt example: Subtotal: 10,000, Disc: 500, Taxable: 9,500, CGST: 855, SGST: 855, Total: 11,210)
+    line3 = Line()
+    totals3 = apply_document_totals([line3], values, "fixed", Decimal("500"), False)
+    assert totals3["document_discount_amount"] == Decimal("500.00")
+    assert totals3["total_taxable_amount"] == Decimal("9500.00")
+    assert totals3["cgst_amount"] == Decimal("855.00")
+    assert totals3["sgst_amount"] == Decimal("855.00")
+    assert totals3["grand_total"] == Decimal("11210.00")
+
+    # 4. Inter-state with 10% discount
+    line4 = Line()
+    totals4 = apply_document_totals([line4], values, "percentage", Decimal("10"), True)
+    assert totals4["igst_amount"] == Decimal("1620.00")
+    assert totals4["cgst_amount"] == Decimal("0.00")
+    assert totals4["sgst_amount"] == Decimal("0.00")
+    assert totals4["grand_total"] == Decimal("10620.00")
+
+    # 5. Negative discount rejected
+    with pytest.raises(Exception):
+        apply_document_totals([Line()], values, "percentage", Decimal("-5"), False)
+
+    # 6. Fixed discount exceeding subtotal rejected
+    with pytest.raises(Exception):
+        apply_document_totals([Line()], values, "fixed", Decimal("15000"), False)
+
 def test_document_totals_reject_invalid_discount():
     class Line:
         taxable_amount = Decimal("100")

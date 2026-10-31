@@ -28,6 +28,10 @@ export default function NewInvoicePage() {
   const [selectedQuoteId, setSelectedQuoteId] = useState('');
   const [serviceSearchTerm, setServiceSearchTerm] = useState('');
 
+  // Discount state
+  const [discountType, setDiscountType] = useState<'' | 'percentage' | 'fixed'>('');
+  const [discountValue, setDiscountValue] = useState<number>(0);
+
   const nextInvNum = `${settings.invoicePrefix}${String(Date.now()).slice(-4)}`;
   const [invoiceNumber, setInvoiceNumber] = useState(nextInvNum);
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
@@ -95,6 +99,13 @@ export default function NewInvoicePage() {
     setProjectTitle(q.projectTitle);
     setLineItems([...q.lineItems]);
     setNotes(`Billed against agreed quotation ${q.quotationNumber}.`);
+    if (q.documentDiscountType && q.documentDiscountValue > 0) {
+      setDiscountType(q.documentDiscountType);
+      setDiscountValue(q.documentDiscountValue);
+    } else {
+      setDiscountType('');
+      setDiscountValue(0);
+    }
   };
 
   // Add line item
@@ -176,13 +187,54 @@ export default function NewInvoicePage() {
     setLineItems(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Totals
-  const totalTaxable = lineItems.reduce((acc, it) => acc + it.taxableAmount, 0);
-  const totalGst = Math.round(totalTaxable * 0.18);
-  const cgstAmount = isInterState ? 0 : Math.round(totalGst / 2);
-  const sgstAmount = isInterState ? 0 : Math.round(totalGst / 2);
-  const igstAmount = isInterState ? totalGst : 0;
-  const grandTotal = totalTaxable + totalGst;
+  // Totals & Discount Calculations
+  const subtotal = lineItems.reduce((acc, it) => acc + (it.lineSubtotal || (it.quantity * it.negotiatedUnitPrice)), 0);
+
+  let discountError = '';
+  if (discountType === 'percentage') {
+    if (discountValue < 0 || discountValue > 100) {
+      discountError = 'Percentage must be between 0 and 100';
+    }
+  } else if (discountType === 'fixed') {
+    if (discountValue < 0) {
+      discountError = 'Discount value cannot be negative';
+    } else if (discountValue > subtotal) {
+      discountError = 'Fixed discount cannot exceed the applicable subtotal';
+    }
+  }
+
+  let calculatedDiscountAmount = 0;
+  if (!discountError && discountType === 'percentage' && discountValue > 0) {
+    calculatedDiscountAmount = Math.round((subtotal * discountValue) / 100);
+  } else if (!discountError && discountType === 'fixed' && discountValue > 0) {
+    calculatedDiscountAmount = Math.min(subtotal, discountValue);
+  }
+
+  const netTaxableAmount = Math.max(0, subtotal - calculatedDiscountAmount);
+
+  // Proportional GST calculation across lines to match backend rules
+  let cgstAmount = 0;
+  let sgstAmount = 0;
+  let igstAmount = 0;
+  let totalGst = 0;
+
+  lineItems.forEach(line => {
+    const lineSubtotal = line.lineSubtotal || (line.quantity * line.negotiatedUnitPrice);
+    const allocatedDiscount = subtotal > 0 ? (calculatedDiscountAmount * lineSubtotal) / subtotal : 0;
+    const adjustedTaxable = Math.max(0, lineSubtotal - allocatedDiscount);
+    const rate = line.gstRate ?? 18;
+    const tax = Math.round((adjustedTaxable * rate) / 100);
+    totalGst += tax;
+    if (isInterState) {
+      igstAmount += tax;
+    } else {
+      const half = Math.round(tax / 2);
+      cgstAmount += half;
+      sgstAmount += (tax - half);
+    }
+  });
+
+  const grandTotal = netTaxableAmount + totalGst;
 
   const handleCreateInvoice = async () => {
     let clientToUse = client;
@@ -231,6 +283,11 @@ export default function NewInvoicePage() {
       return;
     }
 
+    if (discountError) {
+      alert(discountError);
+      return;
+    }
+
     try {
       const newInv = await addInvoice({
         invoiceNumber,
@@ -243,12 +300,12 @@ export default function NewInvoicePage() {
         placeOfSupply: clientToUse.placeOfSupply,
         isInterState: clientToUse.stateCode !== '27',
         lineItems,
-        documentDiscountType: 'fixed',
-        documentDiscountValue: 0,
-        totalLineSubtotal: totalTaxable,
+        documentDiscountType: discountType || 'percentage',
+        documentDiscountValue: discountType ? discountValue : 0,
+        totalLineSubtotal: subtotal,
         totalItemDiscount: 0,
-        documentDiscountAmount: 0,
-        totalTaxableAmount: totalTaxable,
+        documentDiscountAmount: calculatedDiscountAmount,
+        totalTaxableAmount: netTaxableAmount,
         cgstAmount,
         sgstAmount,
         igstAmount,
@@ -529,11 +586,99 @@ export default function NewInvoicePage() {
 
         {/* Totals Summary */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #E5E7EB', paddingTop: '1rem' }}>
-          <div style={{ width: '300px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <div style={{ width: '350px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>Taxable Subtotal:</span>
-              <span style={{ fontWeight: 600 }}>{formatINR(totalTaxable)}</span>
+              <span style={{ fontWeight: 600 }}>{formatINR(subtotal)}</span>
             </div>
+
+            {/* Discount Control Row */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+              <span style={{ color: '#374151' }}>Discount:</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <select
+                  value={discountType}
+                  onChange={(e) => {
+                    const nextType = e.target.value as '' | 'percentage' | 'fixed';
+                    setDiscountType(nextType);
+                    if (!nextType) setDiscountValue(0);
+                  }}
+                  style={{
+                    padding: '3px 6px',
+                    fontSize: '12px',
+                    border: '1px solid #D1D5DB',
+                    borderRadius: '4px',
+                    backgroundColor: '#FFFFFF',
+                    color: '#171717'
+                  }}
+                >
+                  <option value="">- Select Type -</option>
+                  <option value="percentage">Percentage (%)</option>
+                  <option value="fixed">Fixed Amount (₹)</option>
+                </select>
+
+                {discountType !== '' && (
+                  <>
+                    <input
+                      type="number"
+                      min={0}
+                      max={discountType === 'percentage' ? 100 : subtotal}
+                      placeholder={discountType === 'percentage' ? '%' : '₹'}
+                      value={discountValue === 0 ? '' : discountValue}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        const val = raw === '' ? 0 : Number(raw);
+                        setDiscountValue(val < 0 ? 0 : val);
+                      }}
+                      style={{
+                        width: '75px',
+                        padding: '3px 6px',
+                        fontSize: '12px',
+                        border: discountError ? '1px solid #DC2626' : '1px solid #D1D5DB',
+                        borderRadius: '4px',
+                        textAlign: 'right',
+                        backgroundColor: '#FFFFFF'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      title="Reset discount"
+                      onClick={() => {
+                        setDiscountType('');
+                        setDiscountValue(0);
+                      }}
+                      style={{
+                        padding: '2px 6px',
+                        fontSize: '11px',
+                        color: '#6B7280',
+                        border: '1px solid #E5E7EB',
+                        borderRadius: '4px',
+                        background: '#F9FAFB',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Validation warning if applicable */}
+            {discountError && (
+              <div style={{ fontSize: '11.5px', color: '#DC2626', textAlign: 'right' }}>
+                {discountError}
+              </div>
+            )}
+
+            {/* Discount Amount Row */}
+            {calculatedDiscountAmount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#DC2626' }}>
+                <span>Discount Amount:</span>
+                <span style={{ fontWeight: 600 }}>- {formatINR(calculatedDiscountAmount)}</span>
+              </div>
+            )}
+
             {!isInterState ? (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>

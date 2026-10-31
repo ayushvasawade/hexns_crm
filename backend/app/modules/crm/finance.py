@@ -71,10 +71,14 @@ async def build_lines(
 
         line_subtotal = money(item.quantity * item.negotiated_unit_price)
         if item.item_discount_type == "percentage":
-            if item.item_discount_value > 100:
+            if item.item_discount_value < Decimal("0"):
+                raise HTTPException(status_code=422, detail="Item discount cannot be negative")
+            if item.item_discount_value > Decimal("100"):
                 raise HTTPException(status_code=422, detail="Item discount percentage cannot exceed 100")
             discount = money(line_subtotal * item.item_discount_value / Decimal("100"))
         elif item.item_discount_type == "fixed":
+            if item.item_discount_value < Decimal("0"):
+                raise HTTPException(status_code=422, detail="Item discount cannot be negative")
             discount = money(item.item_discount_value)
             if discount > line_subtotal:
                 raise HTTPException(status_code=422, detail="Item discount cannot exceed line subtotal")
@@ -128,8 +132,12 @@ def apply_document_totals(
     inter_state: bool,
 ) -> dict[str, Decimal]:
     base = values["taxable_before_document_discount"]
-    if discount_type == "percentage":
-        if discount_value > 100:
+    if discount_value < Decimal("0"):
+        raise HTTPException(status_code=422, detail="Discount value cannot be negative")
+    if discount_value == Decimal("0") or discount_type in (None, "", "none"):
+        document_discount = Decimal("0")
+    elif discount_type == "percentage":
+        if discount_value > Decimal("100"):
             raise HTTPException(status_code=422, detail="Document discount percentage cannot exceed 100")
         document_discount = money(base * discount_value / Decimal("100"))
     elif discount_type == "fixed":

@@ -252,8 +252,14 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
           <div style={{ width: '280px', display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '13px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>Taxable Subtotal:</span>
-              <span style={{ fontWeight: 600 }}>{formatINR(quote.totalTaxableAmount)}</span>
+              <span style={{ fontWeight: 600 }}>{formatINR(quote.documentDiscountAmount > 0 ? (quote.totalLineSubtotal || (quote.totalTaxableAmount + quote.documentDiscountAmount)) : quote.totalTaxableAmount)}</span>
             </div>
+            {quote.documentDiscountAmount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#DC2626' }}>
+                <span>Discount Amount:</span>
+                <span style={{ fontWeight: 600 }}>- {formatINR(quote.documentDiscountAmount)}</span>
+              </div>
+            )}
             {!quote.isInterState ? (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
