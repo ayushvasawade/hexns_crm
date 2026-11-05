@@ -18,15 +18,17 @@ import {
 import { useCrm } from '../../../context/CrmContext';
 import { DocumentLineItem } from '../../../types/crm';
 import { formatINR, formatDate, numberToWordsINR } from '../../../lib/formatters';
+import { PricingSelector } from '../../../components/document/PricingSelector';
 
 export default function NewInvoicePage() {
   const router = useRouter();
-  const { clients, services, quotations, settings, addInvoice, addClient } = useCrm();
+  const { clients, services, packages, quotations, settings, addInvoice, addClient } = useCrm();
 
   const [selectedClientId, setSelectedClientId] = useState(clients[0]?.id || '');
   const [clientSearchTerm, setClientSearchTerm] = useState('');
   const [selectedQuoteId, setSelectedQuoteId] = useState('');
   const [serviceSearchTerm, setServiceSearchTerm] = useState('');
+  const [selectedPackageId, setSelectedPackageId] = useState('');
 
   // Discount state
   const [discountType, setDiscountType] = useState<'' | 'percentage' | 'fixed'>('');
@@ -88,6 +90,10 @@ export default function NewInvoicePage() {
       service.serviceName.toLowerCase().includes(query) ||
       service.category.toLowerCase().includes(query);
   });
+  const filteredPackages = packages.filter(pkg => {
+    const query = serviceSearchTerm.trim().toLowerCase();
+    return !query || pkg.name.toLowerCase().includes(query) || 'package'.includes(query);
+  });
 
   // Handle Quotation Import
   const handleImportQuote = (quoteId: string) => {
@@ -136,13 +142,49 @@ export default function NewInvoicePage() {
     setLineItems(prev => [...prev, newItem]);
   };
 
+  const handleAddPackage = () => {
+    const pkg = packages.find(item => item.id === selectedPackageId);
+    if (!pkg) return;
+    const unitPrice = pkg.finalPrice;
+    const tax = Math.round(unitPrice * (pkg.gstRate / 100));
+    setLineItems(prev => [...prev, {
+      id: `pkg-${Date.now()}`,
+      serviceName: pkg.name,
+      category: 'Package',
+      packageId: pkg.id,
+      description: pkg.description,
+      sacCode: '998311',
+      quantity: 1,
+      billingUnit: pkg.duration || 'Package',
+      minPrice: pkg.minPrice ?? 0,
+      defaultPrice: pkg.finalPrice,
+      maxPrice: pkg.standardPrice,
+      selectedTier: 'DEFAULT',
+      negotiatedUnitPrice: unitPrice,
+      isBelowMinWarning: false,
+      itemDiscountType: 'fixed',
+      itemDiscountValue: 0,
+      itemDiscountAmount: 0,
+      lineSubtotal: unitPrice,
+      taxableAmount: unitPrice,
+      gstRate: pkg.gstRate,
+      taxAmount: tax,
+      lineTotal: unitPrice + tax,
+    }]);
+    setSelectedPackageId('');
+  };
+
   const handleServiceChange = (index: number, serviceId: string) => {
     const service = services.find(item => item.id === serviceId);
     if (!service) return;
 
+    const isZeroRate = service.defaultPrice === 0 && service.minPrice === 0;
+    const selectedTier: 'DEFAULT' | 'MIN' | 'CUSTOM' = service.defaultPrice > 0 ? 'DEFAULT' : service.minPrice > 0 ? 'MIN' : 'CUSTOM';
+    const unitPrice = service.defaultPrice > 0 ? service.defaultPrice : service.minPrice;
+
     setLineItems(prev => prev.map((item, i) => {
       if (i !== index) return item;
-      const subtotal = item.quantity * service.defaultPrice;
+      const subtotal = item.quantity * unitPrice;
       const tax = Math.round(subtotal * (service.gstRate / 100));
       return {
         ...item,
@@ -155,8 +197,8 @@ export default function NewInvoicePage() {
         minPrice: service.minPrice,
         defaultPrice: service.defaultPrice,
         maxPrice: service.maxPrice,
-        selectedTier: 'DEFAULT',
-        negotiatedUnitPrice: service.defaultPrice,
+        selectedTier,
+        negotiatedUnitPrice: unitPrice,
         isBelowMinWarning: false,
         gstRate: service.gstRate,
         lineSubtotal: subtotal,
@@ -175,6 +217,8 @@ export default function NewInvoicePage() {
       return {
         ...item,
         negotiatedUnitPrice: val,
+        selectedTier: 'CUSTOM',
+        isBelowMinWarning: item.minPrice > 0 && val < item.minPrice,
         lineSubtotal: subtotal,
         taxableAmount: subtotal,
         taxAmount: tax,
@@ -278,8 +322,14 @@ export default function NewInvoicePage() {
       }
     }
 
-    if (lineItems.length === 0 || lineItems.some(item => !item.serviceId)) {
-      alert("Please select a service for every line item.");
+    if (lineItems.length === 0 || lineItems.some(item => !item.serviceName.trim())) {
+      alert("Please select a service or package for every line item.");
+      return;
+    }
+
+    const unpricedItem = lineItems.find(it => it.negotiatedUnitPrice <= 0);
+    if (unpricedItem) {
+      alert(`Please enter a valid rate (> ₹0) for "${unpricedItem.serviceName || 'all line items'}". Custom rate is required.`);
       return;
     }
 
@@ -496,6 +546,21 @@ export default function NewInvoicePage() {
             onChange={(e) => setServiceSearchTerm(e.target.value)}
             style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12.5px', marginBottom: '0.5rem' }}
           />
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+            <select
+              value={selectedPackageId}
+              onChange={(e) => setSelectedPackageId(e.target.value)}
+              style={{ flex: 1, padding: '0.45rem 0.6rem', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12.5px' }}
+            >
+              <option value="">Add a package or retainer…</option>
+              {filteredPackages.map(pkg => (
+                <option key={pkg.id} value={pkg.id}>[Package] {pkg.name} — {formatINR(pkg.finalPrice)}</option>
+              ))}
+            </select>
+            <button type="button" onClick={handleAddPackage} disabled={!selectedPackageId} style={{ padding: '0.45rem 0.75rem', background: '#2563EB', color: '#FFFFFF', borderRadius: '4px', fontSize: '12px', fontWeight: 600, opacity: selectedPackageId ? 1 : 0.5 }}>
+              Add Package
+            </button>
+          </div>
           {services.length === 0 && <div style={{ fontSize: '12px', color: '#B45309' }}>Services are still loading or unavailable.</div>}
 
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
@@ -519,13 +584,21 @@ export default function NewInvoicePage() {
                       style={{ width: '100%', padding: '4px 6px', border: '1px solid #E5E7EB', borderRadius: '4px', fontWeight: 600 }}
                     >
                       <option value="">-- Choose a service --</option>
-                      {filteredServices.map(service => (
-                        <option key={service.id} value={service.id}>
-                          [{service.category}] {service.serviceName}
-                        </option>
-                      ))}
+                      {filteredServices.map(service => {
+                        const isZeroRate = service.defaultPrice === 0 && service.minPrice === 0;
+                        return (
+                          <option key={service.id} value={service.id}>
+                            [{service.category}] {service.serviceName} {isZeroRate ? '— Custom rate required' : `— ${formatINR(service.defaultPrice)}`}
+                          </option>
+                        );
+                      })}
                     </select>
-                    {item.billingUnit && <div style={{ fontSize: '11px', color: '#737373', marginTop: '3px' }}>{item.billingUnit}</div>}
+                    {item.billingUnit && <div style={{ fontSize: '11px', color: '#737373', marginTop: '3px' }}>{item.billingUnit}</div>}
+                    {item.defaultPrice === 0 && item.minPrice === 0 && (
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', marginTop: '3px', padding: '1px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, backgroundColor: '#FEF3C7', color: '#B45309', border: '1px solid #FCD34D' }}>
+                        Custom rate required
+                      </div>
+                    )}
                   </td>
                   <td style={{ padding: '8px', width: '90px' }}>
                     <input 
@@ -563,11 +636,14 @@ export default function NewInvoicePage() {
                     />
                   </td>
                   <td style={{ padding: '8px', width: '140px', textAlign: 'right' }}>
-                    <input 
-                      type="number"
-                      value={item.negotiatedUnitPrice}
-                      onChange={(e) => handlePriceChange(idx, Number(e.target.value))}
-                      style={{ width: '100%', padding: '4px 6px', border: '1px solid #E5E7EB', borderRadius: '4px', textAlign: 'right', fontWeight: 600 }}
+                    <PricingSelector
+                      item={item}
+                      onSelect={(tier) => {
+                        const price = tier === 'MIN' ? item.minPrice : tier === 'DEFAULT' ? item.defaultPrice : item.negotiatedUnitPrice;
+                        handlePriceChange(idx, price);
+                        setLineItems(prev => prev.map((it, i) => i === idx ? { ...it, selectedTier: tier } : it));
+                      }}
+                      onCustomChange={(value) => handlePriceChange(idx, value)}
                     />
                   </td>
                   <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700 }}>

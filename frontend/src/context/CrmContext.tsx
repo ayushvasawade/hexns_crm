@@ -50,6 +50,7 @@ import {
   toRetainerPayload,
   adaptCompanySettings,
   toCompanySettingsPayload,
+  toLineItemPayload,
 } from '../lib/adapters';
 import { useAuth } from './AuthContext';
 
@@ -227,7 +228,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const fetchServices = async (): Promise<any[]> => {
           if (!shouldLoadFullServices) {
-            const response = await servicesApi.list({ page: 1, page_size: 100 });
+            const response = await servicesApi.list({ page: 1, page_size: 200 });
             return response.items || [];
           }
 
@@ -235,7 +236,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let page = 1;
         let total = 0;
         do {
-          const res = await servicesApi.list({ page, page_size: 100 });
+          const res = await servicesApi.list({ page, page_size: 200 });
           const items = res.items || [];
           all = all.concat(items);
           total = res.total || 0;
@@ -248,7 +249,18 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const requestByResource: Record<string, () => Promise<any>> = {
         clients: () => clientsApi.list({ page: 1, page_size: 100 }),
         services: fetchServices,
-        packages: () => packagesApi.list({ page: 1, page_size: 100 }),
+        packages: async () => {
+          let all: any[] = [];
+          let page = 1;
+          let total = 0;
+          do {
+            const res = await packagesApi.list({ page, page_size: 200 });
+            all = all.concat(res.items || []);
+            total = res.total || 0;
+            page += 1;
+          } while (all.length < total);
+          return { items: all, total, page: 1, page_size: all.length };
+        },
         quotations: () => quotationsApi.list({ page: 1, page_size: 100 }),
         invoices: () => invoicesApi.list({ page: 1, page_size: 100 }),
         payments: () => paymentsApi.list({ page: 1, page_size: 100 }),
@@ -498,6 +510,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (updated.internalNotes !== undefined) payload.internal_notes = updated.internalNotes;
     if (updated.status !== undefined) payload.status = updated.status;
     if (updated.rejectionReason !== undefined) payload.rejection_reason = updated.rejectionReason;
+    if (updated.lineItems !== undefined) payload.line_items = updated.lineItems.map(toLineItemPayload);
 
     const res = await quotationsApi.update(id, payload);
     const adapted = adaptQuotation(res, clientMap);
@@ -580,6 +593,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (updated.documentDiscountType !== undefined) payload.document_discount_type = updated.documentDiscountType;
     if (updated.documentDiscountValue !== undefined) payload.document_discount_value = updated.documentDiscountValue;
     if (updated.notes !== undefined) payload.notes = updated.notes;
+    if (updated.lineItems !== undefined) payload.line_items = updated.lineItems.map(toLineItemPayload);
     if (updated.bankDetails !== undefined) payload.bank_details = updated.bankDetails;
     if (updated.status !== undefined) payload.status = updated.status;
 

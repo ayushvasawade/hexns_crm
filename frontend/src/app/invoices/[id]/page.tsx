@@ -19,13 +19,19 @@ import { Badge } from '../../../components/ui/Badge';
 import { Modal } from '../../../components/ui/Modal';
 import { generateInvoicePDF } from '../../../lib/exportUtils';
 import { LetterheadLayout } from '../../../components/document/LetterheadLayout';
+import { PricingSelector } from '../../../components/document/PricingSelector';
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const resolvedParams = use(params);
-  const { invoices, payments, settings, recordPayment } = useCrm();
+  const { invoices, payments, settings, recordPayment, updateInvoice } = useCrm();
 
   const invoice = invoices.find(inv => inv.id === resolvedParams.id);
+  const [editingPricing, setEditingPricing] = useState(false);
+  const [draftLines, setDraftLines] = useState(invoice?.lineItems || []);
+  React.useEffect(() => {
+    if (invoice) setDraftLines(invoice.lineItems);
+  }, [invoice]);
   const [showPayModal, setShowPayModal] = useState(false);
   const [payAmount, setPayAmount] = useState(invoice ? String(invoice.balanceDue) : '');
   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
@@ -42,6 +48,19 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       </div>
     );
   }
+
+  const updateDraftLine = (index: number, tier: 'MIN' | 'DEFAULT' | 'CUSTOM' | 'MAX', value?: number) => {
+    setDraftLines(lines => lines.map((line, lineIndex) => {
+      if (lineIndex !== index) return line;
+      const price = tier === 'MIN' ? line.minPrice : tier === 'DEFAULT' ? line.defaultPrice : tier === 'MAX' ? line.maxPrice : (value ?? line.negotiatedUnitPrice);
+      return { ...line, selectedTier: tier, negotiatedUnitPrice: price, isBelowMinWarning: line.minPrice > 0 && price < line.minPrice };
+    }));
+  };
+
+  const savePricing = async () => {
+    await updateInvoice(invoice.id, { lineItems: draftLines });
+    setEditingPricing(false);
+  };
 
   // Related payments
   const invoicePayments = payments.filter(p => p.invoiceId === invoice.id);
@@ -159,6 +178,11 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
               <span>Record Settlement</span>
             </button>
           )}
+          {invoice.amountPaid === 0 && (
+            <button type="button" onClick={editingPricing ? savePricing : () => setEditingPricing(true)} style={{ padding: '0.45rem 0.85rem', backgroundColor: editingPricing ? '#15803D' : '#FFFFFF', color: editingPricing ? '#FFFFFF' : '#171717', border: '1px solid #E5E7EB', borderRadius: '6px', fontSize: '12.5px', fontWeight: 600 }}>
+              {editingPricing ? 'Save Pricing' : 'Edit Pricing'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -219,7 +243,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             </tr>
           </thead>
           <tbody>
-            {invoice.lineItems.map((item, idx) => (
+            {(editingPricing ? draftLines : invoice.lineItems).map((item, idx) => (
               <tr key={item.id} style={{ borderBottom: '1px solid #E5E7EB' }}>
                 <td style={{ padding: '8px', color: '#737373' }}>{idx + 1}</td>
                 <td style={{ padding: '8px' }}>
@@ -228,7 +252,15 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                 </td>
                 <td style={{ padding: '8px', fontFamily: 'monospace' }}>{item.sacCode}</td>
                 <td style={{ padding: '8px', textAlign: 'center' }}>{item.quantity} {item.billingUnit}</td>
-                <td style={{ padding: '8px', textAlign: 'right' }}>{formatINR(item.negotiatedUnitPrice)}</td>
+                <td style={{ padding: '8px', textAlign: 'right' }}>
+                  {editingPricing ? (
+                    <PricingSelector
+                      item={item}
+                      onSelect={(tier) => updateDraftLine(idx, tier)}
+                      onCustomChange={(value) => updateDraftLine(idx, 'CUSTOM', value)}
+                    />
+                  ) : formatINR(item.negotiatedUnitPrice)}
+                </td>
                 <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>
                   {formatINR(item.taxableAmount)}
                 </td>

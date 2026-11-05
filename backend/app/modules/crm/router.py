@@ -77,8 +77,8 @@ async def page_query(
 
 
 def paging(page: int, page_size: int) -> tuple[int, int]:
-    if page < 1 or page_size < 1 or page_size > 100:
-        raise HTTPException(status_code=422, detail="page must be >= 1 and page_size must be between 1 and 100")
+    if page < 1 or page_size < 1 or page_size > 200:
+        raise HTTPException(status_code=422, detail="page must be >= 1 and page_size must be between 1 and 200")
     return page, page_size
 
 
@@ -146,7 +146,18 @@ async def list_services(
 ) -> dict:
     page, page_size = paging(page, page_size)
     items, total = await page_query(db, Service, user.id, page, page_size, search, status_filter)
-    return {"items": [ServiceResponse.model_validate(x) for x in items], "total": total, "page": page, "page_size": page_size}
+    category_query = select(Service.category, func.count()).where(Service.owner_id == user.id)
+    if status_filter:
+        category_query = category_query.where(Service.status == status_filter)
+    category_result = await db.execute(category_query.group_by(Service.category))
+    category_counts = {category: count for category, count in category_result.all()}
+    return {
+        "items": [ServiceResponse.model_validate(x) for x in items],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "category_counts": category_counts,
+    }
 
 
 @router.post("/services", response_model=ServiceResponse, status_code=201)
@@ -169,8 +180,14 @@ async def update_service(item_id: UUID, payload: ServiceUpdate, db: Db, user: Cu
     updates = payload.model_dump(exclude_unset=True)
     for key, value in updates.items():
         setattr(item, key, value)
-    if not item.min_price <= item.default_price <= item.max_price:
-        raise HTTPException(status_code=422, detail="Prices must satisfy min_price <= default_price <= max_price")
+    if item.min_price < 0 or item.default_price < 0 or item.max_price < 0:
+        raise HTTPException(status_code=422, detail="Prices cannot be negative")
+    if item.default_price > 0 and item.min_price > 0 and item.default_price < item.min_price:
+        raise HTTPException(status_code=422, detail="default_price must be >= min_price")
+    if item.max_price > 0 and item.default_price > 0 and item.max_price < item.default_price:
+        raise HTTPException(status_code=422, detail="max_price must be >= default_price")
+    if item.max_price > 0 and item.min_price > 0 and item.max_price < item.min_price:
+        raise HTTPException(status_code=422, detail="max_price must be >= min_price")
     await commit_or_conflict(db)
     await db.refresh(item)
     return item
@@ -427,6 +444,7 @@ async def convert_quotation(
         InvoiceLineItem(
             invoice_id=invoice.id,
             service_id=line.service_id,
+            package_id=line.package_id,
             service_name=line.service_name,
             category=line.category,
             description=line.description,

@@ -57,6 +57,7 @@ import { formatINR, formatDate, numberToWordsINR } from '../../../lib/formatters
 import { Modal } from '../../../components/ui/Modal';
 
 import { LetterheadLayout } from '../../../components/document/LetterheadLayout';
+import { PricingSelector } from '../../../components/document/PricingSelector';
 
 
 
@@ -340,6 +341,10 @@ export default function QuotationBuilderPage() {
     }
 
 
+    const isZeroRate = srv.defaultPrice === 0 && srv.minPrice === 0;
+    const initialTier: PriceTier = srv.defaultPrice > 0 ? 'DEFAULT' : srv.minPrice > 0 ? 'MIN' : 'CUSTOM';
+    const initialPrice = srv.defaultPrice > 0 ? srv.defaultPrice : srv.minPrice;
+
     const newItem: DocumentLineItem = {
 
       id: `li-${Date.now()}`,
@@ -364,9 +369,9 @@ export default function QuotationBuilderPage() {
 
       maxPrice: srv.maxPrice,
 
-      selectedTier: 'DEFAULT',
+      selectedTier: initialTier,
 
-      negotiatedUnitPrice: srv.defaultPrice,
+      negotiatedUnitPrice: initialPrice,
 
       isBelowMinWarning: false,
 
@@ -376,15 +381,15 @@ export default function QuotationBuilderPage() {
 
       itemDiscountAmount: 0,
 
-      lineSubtotal: srv.defaultPrice,
+      lineSubtotal: initialPrice,
 
-      taxableAmount: srv.defaultPrice,
+      taxableAmount: initialPrice,
 
       gstRate: srv.gstRate,
 
-      taxAmount: Math.round(srv.defaultPrice * (srv.gstRate / 100)),
+      taxAmount: Math.round(initialPrice * (srv.gstRate / 100)),
 
-      lineTotal: Math.round(srv.defaultPrice * (1 + srv.gstRate / 100))
+      lineTotal: Math.round(initialPrice * (1 + srv.gstRate / 100))
 
     };
 
@@ -405,7 +410,7 @@ export default function QuotationBuilderPage() {
 
 
 
-    if (pkg.presentationMode === 'Consolidated') {
+    if (pkg.presentationMode === 'Consolidated' || pkg.items.length === 0) {
 
       const newItem: DocumentLineItem = {
 
@@ -414,6 +419,7 @@ export default function QuotationBuilderPage() {
         serviceName: pkg.name,
 
         category: 'Bundled Package',
+        packageId: pkg.id,
 
         description: pkg.description,
 
@@ -423,7 +429,7 @@ export default function QuotationBuilderPage() {
 
         billingUnit: 'Turnkey',
 
-        minPrice: pkg.finalPrice * 0.9,
+        minPrice: pkg.minPrice ?? 0,
 
         defaultPrice: pkg.finalPrice,
 
@@ -459,13 +465,19 @@ export default function QuotationBuilderPage() {
 
       // Itemized: Add each item with the first carrying the total fee or proportional
 
-      const itemizedLines: DocumentLineItem[] = pkg.items.map((it, idx) => ({
+      const packageWeight = pkg.items.reduce((total, item) => total + Math.max(item.defaultUnitPrice, 0), 0);
+      const itemizedLines: DocumentLineItem[] = pkg.items.map((it, idx) => {
+        const share = packageWeight > 0 ? it.defaultUnitPrice / packageWeight : 1 / pkg.items.length;
+        const lineBase = pkg.finalPrice * share;
+        const lineMinimum = (pkg.minPrice ?? 0) * share;
+        return ({
 
         id: `li-pkg-${Date.now()}-${idx}`,
 
         serviceName: `${it.serviceName} (${pkg.name})`,
 
         category: 'Package Deliverable',
+        packageId: pkg.id,
 
         description: `Deliverable included under ${pkg.name}`,
 
@@ -475,15 +487,11 @@ export default function QuotationBuilderPage() {
 
         billingUnit: it.unit,
 
-        minPrice: it.defaultUnitPrice,
-
-        defaultPrice: it.defaultUnitPrice,
-
-        maxPrice: it.defaultUnitPrice,
-
+        minPrice: lineMinimum,
+        defaultPrice: lineBase,
+        maxPrice: pkg.standardPrice * share,
         selectedTier: 'DEFAULT',
-
-        negotiatedUnitPrice: idx === 0 ? pkg.finalPrice : 0,
+        negotiatedUnitPrice: lineBase,
 
         isBelowMinWarning: false,
 
@@ -493,17 +501,15 @@ export default function QuotationBuilderPage() {
 
         itemDiscountAmount: 0,
 
-        lineSubtotal: idx === 0 ? pkg.finalPrice : 0,
-
-        taxableAmount: idx === 0 ? pkg.finalPrice : 0,
+        lineSubtotal: lineBase,
+        taxableAmount: lineBase,
 
         gstRate: pkg.gstRate,
 
-        taxAmount: idx === 0 ? Math.round(pkg.finalPrice * (pkg.gstRate / 100)) : 0,
-
-        lineTotal: idx === 0 ? Math.round(pkg.finalPrice * (1 + pkg.gstRate / 100)) : 0
-
-      }));
+        taxAmount: Math.round(lineBase * (pkg.gstRate / 100)),
+        lineTotal: Math.round(lineBase * (1 + pkg.gstRate / 100))
+        });
+      });
 
       setLineItems(prev => [...prev, ...itemizedLines]);
 
@@ -583,6 +589,11 @@ export default function QuotationBuilderPage() {
 
 
 
+      if (tier === 'CUSTOM') {
+        return { ...item, selectedTier: tier };
+      }
+      if (item.defaultPrice === 0 && item.minPrice === 0) return item;
+
       let newPrice = item.defaultPrice;
 
       if (tier === 'MIN') newPrice = item.minPrice;
@@ -613,7 +624,7 @@ export default function QuotationBuilderPage() {
 
         negotiatedUnitPrice: newPrice,
 
-        isBelowMinWarning: newPrice < item.minPrice,
+        isBelowMinWarning: item.minPrice > 0 && newPrice < item.minPrice,
 
         itemDiscountAmount: discountAmt,
 
@@ -665,7 +676,7 @@ export default function QuotationBuilderPage() {
 
         negotiatedUnitPrice: val,
 
-        isBelowMinWarning: val < item.minPrice,
+        isBelowMinWarning: item.minPrice > 0 && val < item.minPrice,
 
         itemDiscountAmount: discountAmt,
 
@@ -958,6 +969,12 @@ export default function QuotationBuilderPage() {
 
     }
 
+    const unpricedItem = lineItems.find(it => it.negotiatedUnitPrice <= 0);
+    if (unpricedItem) {
+      alert(`Please enter a valid rate (> ₹0) for "${unpricedItem.serviceName}". Custom rate is required.`);
+      return;
+    }
+
 
 
     try {
@@ -1130,7 +1147,7 @@ export default function QuotationBuilderPage() {
 
           </Link>
 
-          <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
 
             <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#171717', letterSpacing: '-0.02em' }}>
 
@@ -2254,11 +2271,14 @@ export default function QuotationBuilderPage() {
                 style={{ width: '100%', padding: '0.45rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '2px', fontSize: '13px' }}
               >
                 <option value="">-- Choose a service --</option>
-                {filteredServices.map(s => (
-                  <option key={s.id} value={s.id}>
-                    [{s.category}] {s.serviceName} — Default: {formatINR(s.defaultPrice)}
-                  </option>
-                ))}
+                {filteredServices.map(s => {
+                  const isZeroRate = s.defaultPrice === 0 && s.minPrice === 0;
+                  return (
+                    <option key={s.id} value={s.id}>
+                      [{s.category}] {s.serviceName} — {isZeroRate ? 'Custom rate required' : `Default: ${formatINR(s.defaultPrice)}`}
+                    </option>
+                  );
+                })}
               </select>
               {services.length === 0 && <span style={{ fontSize: '12px', color: '#B45309' }}>Services are still loading or unavailable.</span>}
               {services.length > 0 && filteredServices.length === 0 && <span style={{ fontSize: '12px', color: '#B45309' }}>No services match this search.</span>}
@@ -2373,6 +2393,11 @@ export default function QuotationBuilderPage() {
                       {item.category || 'Service'} • SAC {item.sacCode}
 
                     </span>
+                    {item.defaultPrice === 0 && item.minPrice === 0 && (
+                      <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 600, color: '#B45309', backgroundColor: '#FEF3C7', padding: '1px 6px', borderRadius: '4px', border: '1px solid #FCD34D' }}>
+                        Custom rate required
+                      </span>
+                    )}
 
                     <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#171717' }}>{item.serviceName}</h3>
 
@@ -2438,9 +2463,12 @@ export default function QuotationBuilderPage() {
 
                 }}>
 
-                  {/* Quick Pick Buttons */}
-
-                  <div>
+                  <PricingSelector
+                    item={item}
+                    onSelect={(tier) => handleSelectTier(idx, tier)}
+                    onCustomChange={(value) => handleNegotiatedPriceChange(idx, value)}
+                  />
+                  <div style={{ display: 'none' }}>
 
                     <label style={{ fontSize: '11px', fontWeight: 600, color: '#4B5563', display: 'block', marginBottom: '3px' }}>
 
@@ -2448,7 +2476,12 @@ export default function QuotationBuilderPage() {
 
                     </label>
 
-                    <div style={{ display: 'inline-flex', borderRadius: '4px', border: '1px solid #D1D5DB', overflow: 'hidden' }}>
+                    {false ? (
+                      <div style={{ display: 'inline-flex', alignItems: 'center', height: '28px', padding: '0 8px', borderRadius: '4px', backgroundColor: '#FEF3C7', border: '1px solid #FCD34D', fontSize: '11.5px', fontWeight: 600, color: '#92400E' }}>
+                        Custom Agreed Rate Required
+                      </div>
+                    ) : (
+                      <div style={{ display: 'inline-flex', borderRadius: '4px', border: '1px solid #D1D5DB', overflow: 'hidden' }}>
 
                       <button 
 
@@ -2533,14 +2566,14 @@ export default function QuotationBuilderPage() {
                       </button>
 
                     </div>
+                    )}
 
                   </div>
 
 
 
                   {/* Negotiated Unit Price */}
-
-                  <div>
+                  <div style={{ display: 'none' }}>
 
                     <label style={{ fontSize: '11px', fontWeight: 600, color: '#171717', display: 'block', marginBottom: '3px' }}>
 
@@ -2552,7 +2585,9 @@ export default function QuotationBuilderPage() {
 
                       type="number"
 
-                      value={item.negotiatedUnitPrice}
+                      value={item.negotiatedUnitPrice === 0 && item.defaultPrice === 0 && item.minPrice === 0 ? '' : item.negotiatedUnitPrice}
+
+                      placeholder={item.defaultPrice === 0 && item.minPrice === 0 ? 'Enter agreed rate' : '0'}
 
                       onChange={(e) => handleNegotiatedPriceChange(idx, Number(e.target.value))}
 
@@ -2562,7 +2597,11 @@ export default function QuotationBuilderPage() {
 
                         padding: '4px 8px',
 
-                        border: item.isBelowMinWarning ? '1px solid #DC2626' : '1px solid #D1D5DB',
+                        border: item.isBelowMinWarning 
+                          ? '1px solid #DC2626' 
+                          : (item.defaultPrice === 0 && item.minPrice === 0 && item.negotiatedUnitPrice <= 0)
+                            ? '2px solid #F59E0B'
+                            : '1px solid #D1D5DB',
 
                         borderRadius: '4px',
 
@@ -2570,7 +2609,7 @@ export default function QuotationBuilderPage() {
 
                         fontSize: '13px',
 
-                        backgroundColor: '#FFFFFF'
+                        backgroundColor: (item.defaultPrice === 0 && item.minPrice === 0 && item.negotiatedUnitPrice <= 0) ? '#FFFBEB' : '#FFFFFF'
 
                       }}
 
@@ -2668,6 +2707,16 @@ export default function QuotationBuilderPage() {
 
                   </div>
 
+                )}
+
+                {/* Custom Rate Required Warning Banner */}
+                {item.defaultPrice === 0 && item.minPrice === 0 && item.negotiatedUnitPrice <= 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#B45309', backgroundColor: '#FFFBEB', padding: '6px 10px', borderRadius: '4px', border: '1px solid #FDE68A', fontSize: '12px', fontWeight: 500 }}>
+                    <AlertTriangle size={15} />
+                    <span>
+                      Custom rate required: Please enter an agreed price greater than ₹0 for {item.serviceName}.
+                    </span>
+                  </div>
                 )}
 
               </div>
@@ -3730,4 +3779,3 @@ export default function QuotationBuilderPage() {
   );
 
 }
-

@@ -117,6 +117,7 @@ export interface Package {
 export interface DocumentLineItem {
   id: string;
   serviceId?: string;
+  packageId?: string;
   serviceName: string;
   category?: string;
   description: string;

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { use } from 'react';
+import React, { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
@@ -14,13 +14,19 @@ import { formatINR, formatDate, numberToWordsINR } from '../../../lib/formatters
 import { Badge } from '../../../components/ui/Badge';
 import { generateQuotationPDF } from '../../../lib/exportUtils';
 import { LetterheadLayout } from '../../../components/document/LetterheadLayout';
+import { PricingSelector } from '../../../components/document/PricingSelector';
 
 export default function QuotationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const resolvedParams = use(params);
-  const { quotations, settings, updateQuotationStatus, convertQuotationToInvoice } = useCrm();
+  const { quotations, settings, updateQuotation, updateQuotationStatus, convertQuotationToInvoice } = useCrm();
 
   const quote = quotations.find(q => q.id === resolvedParams.id);
+  const [editingPricing, setEditingPricing] = useState(false);
+  const [draftLines, setDraftLines] = useState(quote?.lineItems || []);
+  useEffect(() => {
+    if (quote) setDraftLines(quote.lineItems);
+  }, [quote]);
 
   if (!quote) {
     return (
@@ -40,6 +46,19 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
     } catch (err: any) {
       alert(err?.message || 'Failed to convert quotation');
     }
+  };
+
+  const updateDraftLine = (index: number, tier: 'MIN' | 'DEFAULT' | 'CUSTOM' | 'MAX', value?: number) => {
+    setDraftLines(lines => lines.map((line, lineIndex) => {
+      if (lineIndex !== index) return line;
+      const price = tier === 'MIN' ? line.minPrice : tier === 'DEFAULT' ? line.defaultPrice : tier === 'MAX' ? line.maxPrice : (value ?? line.negotiatedUnitPrice);
+      return { ...line, selectedTier: tier, negotiatedUnitPrice: price, isBelowMinWarning: line.minPrice > 0 && price < line.minPrice };
+    }));
+  };
+
+  const savePricing = async () => {
+    await updateQuotation(quote.id, { lineItems: draftLines });
+    setEditingPricing(false);
   };
 
   return (
@@ -166,6 +185,11 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
               View Generated Invoice →
             </Link>
           )}
+          {quote.status !== 'Converted' && (
+            <button type="button" onClick={editingPricing ? savePricing : () => setEditingPricing(true)} style={{ padding: '0.45rem 0.85rem', backgroundColor: editingPricing ? '#15803D' : '#FFFFFF', color: editingPricing ? '#FFFFFF' : '#171717', border: '1px solid #E5E7EB', borderRadius: '6px', fontSize: '12.5px', fontWeight: 600 }}>
+              {editingPricing ? 'Save Pricing' : 'Edit Pricing'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -220,7 +244,7 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
             </tr>
           </thead>
           <tbody>
-            {quote.lineItems.map((item, idx) => (
+            {(editingPricing ? draftLines : quote.lineItems).map((item, idx) => (
               <tr key={item.id} style={{ borderBottom: '1px solid #E5E7EB' }}>
                 <td style={{ padding: '8px', color: '#737373' }}>{idx + 1}</td>
                 <td style={{ padding: '8px' }}>
@@ -229,7 +253,15 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
                 </td>
                 <td style={{ padding: '8px', fontFamily: 'monospace' }}>{item.sacCode}</td>
                 <td style={{ padding: '8px', textAlign: 'center' }}>{item.quantity} {item.billingUnit}</td>
-                <td style={{ padding: '8px', textAlign: 'right' }}>{formatINR(item.negotiatedUnitPrice)}</td>
+                <td style={{ padding: '8px', textAlign: 'right' }}>
+                  {editingPricing ? (
+                    <PricingSelector
+                      item={item}
+                      onSelect={(tier) => updateDraftLine(idx, tier)}
+                      onCustomChange={(value) => updateDraftLine(idx, 'CUSTOM', value)}
+                    />
+                  ) : formatINR(item.negotiatedUnitPrice)}
+                </td>
                 <td style={{ padding: '8px', textAlign: 'right', color: item.itemDiscountAmount > 0 ? '#DC2626' : '#737373' }}>
                   {item.itemDiscountAmount > 0 ? `−${formatINR(item.itemDiscountAmount)}` : '—'}
                 </td>

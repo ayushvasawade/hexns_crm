@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.crm import (
-    Client, Invoice, InvoiceLineItem, Quotation, QuotationLineItem, Service,
+    Client, Invoice, InvoiceLineItem, Package, Quotation, QuotationLineItem, Service,
 )
 from app.modules.crm.schemas import LineItemInput
 
@@ -34,6 +34,26 @@ async def owned_service(db: AsyncSession, owner_id: UUID, service_id: UUID) -> S
     return service
 
 
+def validate_line_price(
+    *,
+    name: str,
+    min_price: Decimal,
+    default_price: Decimal,
+    selected_tier: str,
+    negotiated_price: Decimal,
+) -> None:
+    if negotiated_price <= Decimal("0"):
+        raise HTTPException(status_code=422, detail=f"Service '{name}' requires manual rate entry greater than 0")
+    if selected_tier == "MIN" and min_price <= Decimal("0"):
+        raise HTTPException(status_code=422, detail=f"'{name}' has no minimum rate")
+    if selected_tier == "DEFAULT" and default_price <= Decimal("0"):
+        raise HTTPException(status_code=422, detail=f"'{name}' has no base rate")
+    if selected_tier == "MAX" and default_price <= Decimal("0"):
+        raise HTTPException(status_code=422, detail=f"'{name}' has no maximum rate")
+    if selected_tier not in {"MIN", "DEFAULT", "CUSTOM", "MAX"}:
+        raise HTTPException(status_code=422, detail="Invalid pricing selection")
+
+
 async def build_lines(
     db: AsyncSession,
     owner_id: UUID,
@@ -48,6 +68,11 @@ async def build_lines(
 
     for item in inputs:
         service = await owned_service(db, owner_id, item.service_id) if item.service_id else None
+        package = None
+        if item.package_id:
+            package = await db.scalar(select(Package).where(Package.id == item.package_id, Package.owner_id == owner_id))
+            if package is None:
+                raise HTTPException(status_code=404, detail="Package not found")
         if service:
             service_name = service.service_name
             category = service.category
@@ -58,6 +83,16 @@ async def build_lines(
             default_price = service.default_price
             max_price = service.max_price
             gst_rate = service.gst_rate
+        elif package:
+            service_name = package.name
+            category = "Package"
+            description = package.description
+            billing_unit = package.duration or "Package"
+            sac_code = "998311"
+            min_price = package.min_price or Decimal("0")
+            default_price = package.final_price
+            max_price = package.standard_price
+            gst_rate = package.gst_rate
         else:
             service_name = item.service_name
             category = item.category
@@ -68,6 +103,14 @@ async def build_lines(
             default_price = item.default_price
             max_price = item.max_price
             gst_rate = item.gst_rate
+
+        validate_line_price(
+            name=service_name,
+            min_price=min_price,
+            default_price=default_price,
+            selected_tier=item.selected_tier,
+            negotiated_price=item.negotiated_unit_price,
+        )
 
         line_subtotal = money(item.quantity * item.negotiated_unit_price)
         if item.item_discount_type == "percentage":
@@ -94,6 +137,7 @@ async def build_lines(
                 **{
                     parent_field: None,
                     "service_id": item.service_id,
+                    "package_id": item.package_id,
                     "service_name": service_name,
                     "category": category,
                     "description": description,

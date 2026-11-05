@@ -108,8 +108,14 @@ class ServiceBase(ApiSchema):
 
     @model_validator(mode="after")
     def valid_prices(self) -> "ServiceBase":
-        if not self.min_price <= self.default_price <= self.max_price:
-            raise ValueError("Prices must satisfy min_price <= default_price <= max_price")
+        if self.min_price < 0 or self.default_price < 0 or self.max_price < 0:
+            raise ValueError("Prices cannot be negative")
+        if self.default_price > 0 and self.min_price > 0 and self.default_price < self.min_price:
+            raise ValueError("default_price must be greater than or equal to min_price")
+        if self.max_price > 0 and self.default_price > 0 and self.max_price < self.default_price:
+            raise ValueError("max_price must be greater than or equal to default_price")
+        if self.max_price > 0 and self.min_price > 0 and self.max_price < self.min_price:
+            raise ValueError("max_price must be greater than or equal to min_price")
         return self
 
 
@@ -192,6 +198,7 @@ class PackageResponse(PackageBase):
 
 class LineItemInput(ApiSchema):
     service_id: UUID | None = None
+    package_id: UUID | None = None
     service_name: str
     category: str | None = None
     description: str
