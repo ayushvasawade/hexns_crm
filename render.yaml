@@ -24,7 +24,7 @@ services:
       - key: JWT_ALGORITHM
         value: HS256
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
-        value: "1440"
+        value: "720"
       - key: CORS_ORIGINS
         sync: false
       - key: DATABASE_POOL_SIZE
