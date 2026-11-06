@@ -56,10 +56,11 @@ export function setAuthToken(token: string | null) {
 interface FetchOptions extends RequestInit {
   params?: Record<string, any>;
   skipAuth?: boolean;
+  timeoutMs?: number;
 }
 
 export async function fetchApi<T>(endpoint: string, options: FetchOptions = {}): Promise<T> {
-  const { params, skipAuth = false, ...fetchOptions } = options;
+  const { params, skipAuth = false, timeoutMs = 15000, signal, ...fetchOptions } = options;
   const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
   let url = `${API_BASE_URL}${path}`;
@@ -88,18 +89,30 @@ export async function fetchApi<T>(endpoint: string, options: FetchOptions = {}):
     }
   }
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const abortFromCaller = () => controller.abort();
+  signal?.addEventListener('abort', abortFromCaller, { once: true });
+
   let response: Response;
   try {
     response = await fetch(url, {
       ...fetchOptions,
       headers,
+      signal: controller.signal,
     });
   } catch (netErr: any) {
+    const isTimeout = controller.signal.aborted && !signal?.aborted;
     throw new ApiError(
-      netErr?.message || 'Network connection to backend server failed. Please ensure the backend is running.',
+      isTimeout
+        ? 'The request timed out. Please try again.'
+        : (netErr?.message || 'Network connection to backend server failed. Please ensure the backend is running.'),
       0,
-      'NETWORK_ERROR'
+      isTimeout ? 'TIMEOUT' : 'NETWORK_ERROR'
     );
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener('abort', abortFromCaller);
   }
 
   if (response.status === 204) {
@@ -154,7 +167,11 @@ export async function fetchApi<T>(endpoint: string, options: FetchOptions = {}):
 
 export const authApi = {
   login: (credentials: { email: string; password: string }) =>
-    fetchApi<{ access_token: string; token_type: string }>('/auth/login', {
+    fetchApi<{
+      access_token: string;
+      token_type: string;
+      user?: { id: string; email: string; full_name: string; is_active: boolean };
+    }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
       skipAuth: true,

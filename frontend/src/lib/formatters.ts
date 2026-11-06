@@ -11,14 +11,17 @@ export function formatINR(amount: number): string {
   }).format(amount);
 }
 
-export function formatINRWithDecimals(amount: number): string {
-  if (isNaN(amount) || amount === null || amount === undefined) return "₹0.00";
-  return new Intl.NumberFormat('en-IN', {
+export function formatINRWithDecimals(amount: number | null | undefined): string {
+  if (amount === null || amount === undefined || isNaN(Number(amount))) return "₹0.00";
+  const num = Number(amount);
+  const isNegative = num < 0;
+  const formatted = new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  }).format(amount);
+  }).format(Math.abs(num));
+  return isNegative ? `-${formatted}` : formatted;
 }
 
 export function formatDate(dateString: string): string {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Layers, 
   Search, 
@@ -11,6 +11,7 @@ import {
   Copy, 
   Edit, 
   Power,
+  ChevronLeft,
   ChevronRight,
   Info
 } from 'lucide-react';
@@ -25,6 +26,8 @@ export default function ServicesPage() {
 
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(100);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<ServiceItem | null>(null);
 
@@ -78,6 +81,14 @@ export default function ServicesPage() {
 
     return matchesSearch && matchesCategory;
   });
+  const totalPages = Math.max(1, Math.ceil(filteredServices.length / pageSize));
+  const visibleServices = filteredServices.slice((page - 1) * pageSize, page * pageSize);
+  const showingStart = filteredServices.length === 0 ? 0 : (page - 1) * pageSize + 1;
+  const showingEnd = Math.min(page * pageSize, filteredServices.length);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, selectedCategory, pageSize]);
 
   const handleSaveService = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -259,7 +270,7 @@ export default function ServicesPage() {
               />
             </div>
             <span style={{ fontSize: '12px', color: '#737373' }}>
-              Showing <strong>{filteredServices.length}</strong> items
+              Showing <strong>{showingStart}&ndash;{showingEnd}</strong> of <strong>{filteredServices.length}</strong> items
             </span>
           </div>
 
@@ -304,7 +315,7 @@ export default function ServicesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredServices.map(srv => (
+                  {visibleServices.map(srv => (
                     <tr 
                       key={srv.id}
                       style={{ borderBottom: '1px solid #F3F4F6' }}
@@ -323,13 +334,31 @@ export default function ServicesPage() {
                         <div style={{ fontSize: '11.5px', color: '#737373', fontFamily: 'monospace' }}>SAC {srv.sacCode}</div>
                       </td>
                       <td style={{ padding: '0.75rem 1rem', color: '#B45309', fontWeight: 600 }}>
-                        {formatINR(srv.minPrice)}
+                        {srv.minPrice === 0 && srv.defaultPrice === 0 ? (
+                          <span style={{ fontSize: '11px', color: '#B45309', backgroundColor: '#FEF3C7', padding: '2px 6px', borderRadius: '4px', border: '1px solid #FCD34D' }}>
+                            Custom
+                          </span>
+                        ) : (
+                          formatINR(srv.minPrice)
+                        )}
                       </td>
                       <td style={{ padding: '0.75rem 1rem', color: '#171717', fontWeight: 700 }}>
-                        {formatINR(srv.defaultPrice)}
+                        {srv.minPrice === 0 && srv.defaultPrice === 0 ? (
+                          <span style={{ fontSize: '11.5px', color: '#92400E', fontWeight: 600 }}>
+                            Custom Rate Required
+                          </span>
+                        ) : (
+                          formatINR(srv.defaultPrice)
+                        )}
                       </td>
                       <td style={{ padding: '0.75rem 1rem', color: '#15803D', fontWeight: 600 }}>
-                        {formatINR(srv.maxPrice)}
+                        {srv.minPrice === 0 && srv.defaultPrice === 0 ? (
+                          <span style={{ fontSize: '11px', color: '#6B7280' }}>
+                            Flexible
+                          </span>
+                        ) : (
+                          formatINR(srv.maxPrice)
+                        )}
                       </td>
                       <td style={{ padding: '0.75rem 1rem' }}>{srv.gstRate}%</td>
                       <td style={{ padding: '0.75rem 1rem' }}>
@@ -371,6 +400,39 @@ export default function ServicesPage() {
                   )}
                 </tbody>
               </table>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', padding: '0.65rem 1rem', borderTop: '1px solid #E5E7EB', fontSize: '12px', color: '#737373' }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                Items per page
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  style={{ padding: '0.25rem 0.4rem', border: '1px solid #D1D5DB', borderRadius: '4px' }}
+                >
+                  {[25, 50, 100, 200].map(size => <option key={size} value={size}>{size}</option>)}
+                </select>
+              </label>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span>Page {page} of {totalPages}</span>
+                <button
+                  type="button"
+                  aria-label="Previous page"
+                  disabled={page === 1}
+                  onClick={() => setPage(current => Math.max(1, current - 1))}
+                  style={{ padding: '0.25rem', color: page === 1 ? '#D1D5DB' : '#374151' }}
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Next page"
+                  disabled={page === totalPages}
+                  onClick={() => setPage(current => Math.min(totalPages, current + 1))}
+                  style={{ padding: '0.25rem', color: page === totalPages ? '#D1D5DB' : '#374151' }}
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
             </div>
           </div>
         </div>

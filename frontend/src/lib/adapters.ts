@@ -193,6 +193,7 @@ export function adaptLineItem(it: any): DocumentLineItem {
   return {
     id: it.id || `li-${Math.random().toString(36).slice(2, 9)}`,
     serviceId: it.serviceId || it.service_id || undefined,
+    packageId: it.packageId || it.package_id || undefined,
     serviceName: it.serviceName || it.service_name || '',
     category: it.category || undefined,
     description: it.description || '',
@@ -219,6 +220,7 @@ export function adaptLineItem(it: any): DocumentLineItem {
 export function toLineItemPayload(it: DocumentLineItem): Record<string, any> {
   return {
     service_id: isValidUuid(it.serviceId) ? it.serviceId : null,
+    package_id: isValidUuid(it.packageId) ? it.packageId : null,
     service_name: it.serviceName,
     category: it.category || null,
     description: it.description || '',

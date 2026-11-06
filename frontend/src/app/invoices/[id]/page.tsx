@@ -19,14 +19,20 @@ import { Badge } from '../../../components/ui/Badge';
 import { Modal } from '../../../components/ui/Modal';
 import { generateInvoicePDF } from '../../../lib/exportUtils';
 import { LetterheadLayout } from '../../../components/document/LetterheadLayout';
+import { PricingSelector } from '../../../components/document/PricingSelector';
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const resolvedParams = use(params);
-  const { invoices, payments, settings, recordPayment } = useCrm();
+  const { invoices, payments, settings, recordPayment, updateInvoice } = useCrm();
 
   const decodedId = decodeURIComponent(resolvedParams.id).toLowerCase();
   const invoice = invoices.find(inv => inv.id.toLowerCase() === decodedId || inv.invoiceNumber?.toLowerCase() === decodedId);
+  const [editingPricing, setEditingPricing] = useState(false);
+  const [draftLines, setDraftLines] = useState(invoice?.lineItems || []);
+  React.useEffect(() => {
+    if (invoice) setDraftLines(invoice.lineItems);
+  }, [invoice]);
   const [showPayModal, setShowPayModal] = useState(false);
   const [payAmount, setPayAmount] = useState(invoice ? String(invoice.balanceDue) : '');
   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
@@ -43,6 +49,19 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       </div>
     );
   }
+
+  const updateDraftLine = (index: number, tier: 'MIN' | 'DEFAULT' | 'CUSTOM' | 'MAX', value?: number) => {
+    setDraftLines(lines => lines.map((line, lineIndex) => {
+      if (lineIndex !== index) return line;
+      const price = tier === 'MIN' ? line.minPrice : tier === 'DEFAULT' ? line.defaultPrice : tier === 'MAX' ? line.maxPrice : (value ?? line.negotiatedUnitPrice);
+      return { ...line, selectedTier: tier, negotiatedUnitPrice: price, isBelowMinWarning: line.minPrice > 0 && price < line.minPrice };
+    }));
+  };
+
+  const savePricing = async () => {
+    await updateInvoice(invoice.id, { lineItems: draftLines });
+    setEditingPricing(false);
+  };
 
   // Related payments
   const invoicePayments = payments.filter(p => p.invoiceId === invoice.id);
@@ -91,7 +110,14 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button 
             type="button"
-            onClick={() => generateInvoicePDF(invoice, settings)}
+            onClick={() => {
+              try {
+                generateInvoicePDF(invoice, settings);
+              } catch (error: unknown) {
+                const message = error instanceof Error ? error.message : 'Failed to generate invoice PDF';
+                alert(message);
+              }
+            }}
             style={{
               padding: '0.45rem 0.85rem',
               border: '1px solid #E5E7EB',
@@ -153,6 +179,11 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
               <span>Record Settlement</span>
             </button>
           )}
+          {invoice.amountPaid === 0 && (
+            <button type="button" onClick={editingPricing ? savePricing : () => setEditingPricing(true)} style={{ padding: '0.45rem 0.85rem', backgroundColor: editingPricing ? '#15803D' : '#FFFFFF', color: editingPricing ? '#FFFFFF' : '#171717', border: '1px solid #E5E7EB', borderRadius: '6px', fontSize: '12.5px', fontWeight: 600 }}>
+              {editingPricing ? 'Save Pricing' : 'Edit Pricing'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -199,19 +230,21 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         </div>
 
         {/* Invoice Items Table */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px', textAlign: 'left' }}>
+        <table className="invoice-items-table" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '12.5px', textAlign: 'left' }}>
           <thead>
             <tr style={{ backgroundColor: '#F9FAFB', borderTop: '1px solid #171717', borderBottom: '1px solid #171717' }}>
-              <th style={{ padding: '8px' }}>#</th>
-              <th style={{ padding: '8px' }}>Description of Service</th>
-              <th style={{ padding: '8px' }}>SAC</th>
-              <th style={{ padding: '8px', textAlign: 'center' }}>Qty</th>
-              <th style={{ padding: '8px', textAlign: 'right' }}>Rate (₹)</th>
-              <th style={{ padding: '8px', textAlign: 'right' }}>Taxable Value (₹)</th>
+              <th style={{ width: '4%', padding: '8px' }}>#</th>
+              <th style={{ width: '30%', padding: '8px' }}>Description of Service</th>
+              <th style={{ width: '9%', padding: '8px' }}>SAC</th>
+              <th style={{ width: '9%', padding: '8px', textAlign: 'center' }}>Qty / Unit</th>
+              <th style={{ width: '14%', padding: '8px', textAlign: 'right' }}>Rate (₹)</th>
+              <th style={{ width: '14%', padding: '8px', textAlign: 'right' }}>Taxable (₹)</th>
+              <th style={{ width: '7%', padding: '8px', textAlign: 'center' }}>GST</th>
+              <th style={{ width: '13%', padding: '8px', textAlign: 'right' }}>Amount (₹)</th>
             </tr>
           </thead>
           <tbody>
-            {invoice.lineItems.map((item, idx) => (
+            {(editingPricing ? draftLines : invoice.lineItems).map((item, idx) => (
               <tr key={item.id} style={{ borderBottom: '1px solid #E5E7EB' }}>
                 <td style={{ padding: '8px', color: '#737373' }}>{idx + 1}</td>
                 <td style={{ padding: '8px' }}>
@@ -220,9 +253,21 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                 </td>
                 <td style={{ padding: '8px', fontFamily: 'monospace' }}>{item.sacCode}</td>
                 <td style={{ padding: '8px', textAlign: 'center' }}>{item.quantity} {item.billingUnit}</td>
-                <td style={{ padding: '8px', textAlign: 'right' }}>{formatINR(item.negotiatedUnitPrice)}</td>
+                <td style={{ padding: '8px', textAlign: 'right' }}>
+                  {editingPricing ? (
+                    <PricingSelector
+                      item={item}
+                      onSelect={(tier) => updateDraftLine(idx, tier)}
+                      onCustomChange={(value) => updateDraftLine(idx, 'CUSTOM', value)}
+                    />
+                  ) : formatINR(item.negotiatedUnitPrice)}
+                </td>
                 <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>
                   {formatINR(item.taxableAmount)}
+                </td>
+                <td style={{ padding: '8px', textAlign: 'center' }}>{item.gstRate}%</td>
+                <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>
+                  {formatINR(item.lineTotal)}
                 </td>
               </tr>
             ))}
@@ -230,7 +275,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         </table>
 
         {/* Summary & Amount in Words */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div className="print-avoid-break" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div style={{ maxWidth: '420px', fontSize: '12px', color: '#4B5563' }}>
             <span style={{ fontWeight: 700, textTransform: 'uppercase', color: '#171717' }}>Total in Words:</span>
             <div style={{ fontWeight: 700, color: '#171717', fontSize: '12.5px', marginTop: '2px' }}>
@@ -244,8 +289,14 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           <div style={{ width: '280px', display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '13px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>Taxable Subtotal:</span>
-              <span style={{ fontWeight: 600 }}>{formatINR(invoice.totalTaxableAmount)}</span>
+              <span style={{ fontWeight: 600 }}>{formatINR(invoice.documentDiscountAmount > 0 ? (invoice.totalLineSubtotal || (invoice.totalTaxableAmount + invoice.documentDiscountAmount)) : invoice.totalTaxableAmount)}</span>
             </div>
+            {invoice.documentDiscountAmount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#DC2626' }}>
+                <span>Discount Amount:</span>
+                <span style={{ fontWeight: 600 }}>- {formatINR(invoice.documentDiscountAmount)}</span>
+              </div>
+            )}
             {!invoice.isInterState ? (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
@@ -284,7 +335,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             <span style={{ fontSize: '11px', fontWeight: 700, color: '#737373', textTransform: 'uppercase' }}>
               Settlement History
             </span>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginTop: '4px' }}>
+            <table className="payment-history-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginTop: '4px' }}>
               <thead>
                 <tr style={{ background: '#F9FAFB' }}>
                   <th style={{ padding: '4px 8px', textAlign: 'left' }}>Receipt #</th>
@@ -310,7 +361,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         )}
 
         {/* Bank Settlement & Signature */}
-        <div style={{
+        <div className="print-avoid-break" style={{
           borderTop: '1px solid #E5E7EB',
           paddingTop: '1rem',
           display: 'flex',

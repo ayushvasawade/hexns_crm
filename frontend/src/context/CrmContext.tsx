@@ -1,6 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { 
   Client, 
   ServiceItem, 
@@ -50,6 +51,7 @@ import {
   toRetainerPayload,
   adaptCompanySettings,
   toCompanySettingsPayload,
+  toLineItemPayload,
 } from '../lib/adapters';
 import { useAuth } from './AuthContext';
 
@@ -131,6 +133,7 @@ const CrmContext = createContext<CrmContextType | undefined>(undefined);
 
 export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
+  const pathname = usePathname();
 
   const [clients, setClients] = useState<Client[]>([]);
   const [services, setServices] = useState<ServiceItem[]>([]);
@@ -146,6 +149,14 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState<Array<{ id: string; title: string; time: string; read: boolean }>>([]);
+  const loadedResources = useRef(new Set<string>());
+  const inFlightLoad = useRef<Promise<void> | null>(null);
+  const clientsRef = useRef<Client[]>(clients);
+  useEffect(() => { clientsRef.current = clients; }, [clients]);
+  const quotationsRef = useRef<Quotation[]>(quotations);
+  useEffect(() => { quotationsRef.current = quotations; }, [quotations]);
+  const invoicesRef = useRef<Invoice[]>(invoices);
+  useEffect(() => { invoicesRef.current = invoices; }, [invoices]);
 
   // Lookup maps for fast relational resolution
   const clientMap = useMemo(() => {
@@ -166,116 +177,148 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return map;
   }, [invoices]);
 
-  // Load all 9 domain resources from backend
-  const loadAllData = useCallback(async () => {
+  const resourcesForPath = useCallback((path: string): string[] => {
+    if (path === '/login') return [];
+    if (path === '/') return ['clients', 'services', 'quotations', 'invoices', 'payments', 'expenses'];
+    if (path.startsWith('/clients')) return ['clients', 'quotations', 'invoices', 'payments'];
+    if (path === '/services') return ['services'];
+    if (path.startsWith('/packages')) return ['packages', 'services'];
+    if (path === '/quotations/new') return ['clients', 'services', 'packages', 'settings'];
+    if (path === '/quotations') return ['clients', 'quotations'];
+    if (path.startsWith('/quotations/')) return ['clients', 'quotations', 'settings'];
+    if (path === '/invoices/new') return ['clients', 'services', 'quotations', 'settings'];
+    if (path === '/invoices') return ['clients', 'quotations', 'invoices'];
+    if (path.startsWith('/invoices/')) return ['clients', 'quotations', 'invoices', 'payments', 'settings'];
+    if (path === '/payments') return ['payments', 'invoices', 'clients'];
+    if (path === '/expenses') return ['expenses'];
+    if (path === '/retainers') return ['retainers', 'clients', 'services'];
+    if (path === '/settings') return ['settings'];
+    if (path === '/reports') return ['clients', 'quotations', 'invoices', 'expenses', 'settings'];
+    return [];
+  }, []);
+
+  const loadAllData = useCallback(async (force = false) => {
     if (!isAuthenticated) {
+      loadedResources.current.clear();
       setIsLoading(false);
+      return;
+    }
+
+    const requestedResources = resourcesForPath(pathname);
+    const resourcesToLoad = requestedResources.filter(resource => force || !loadedResources.current.has(resource));
+    if (resourcesToLoad.length === 0) {
+      setIsLoading(false);
+      return;
+    }
+
+    if (inFlightLoad.current) {
+      await inFlightLoad.current;
+      if (force || resourcesToLoad.some(resource => !loadedResources.current.has(resource))) {
+        await loadAllData(force);
+      }
       return;
     }
 
     setIsLoading(true);
     setError(null);
-    try {
-      // Helper to fetch all pages for services to ensure full catalogue is loaded
-      const fetchAllServices = async (): Promise<ServiceItem[]> => {
+    const shouldLoadFullServices = pathname === '/services'
+      || pathname.startsWith('/packages')
+      || pathname === '/quotations/new'
+      || pathname === '/invoices/new'
+      || pathname === '/retainers';
+
+    const loadPromise = (async () => {
+      try {
+        const fetchServices = async (): Promise<any[]> => {
+          if (!shouldLoadFullServices) {
+            const response = await servicesApi.list({ page: 1, page_size: 200 });
+            return response.items || [];
+          }
+
         let all: any[] = [];
         let page = 1;
         let total = 0;
         do {
-          const res = await servicesApi.list({ page, page_size: 100 });
+          const res = await servicesApi.list({ page, page_size: 200 });
           const items = res.items || [];
           all = all.concat(items);
           total = res.total || 0;
           page += 1;
           if (items.length === 0) break;
         } while (all.length < total);
-        return all.map(adaptService);
+        return all;
       };
 
-      const [
-        clientsRes,
-        servicesRes,
-        packagesRes,
-        quotationsRes,
-        invoicesRes,
-        paymentsRes,
-        expensesRes,
-        retainersRes,
-        settingsRes,
-      ] = await Promise.allSettled([
-        clientsApi.list({ page: 1, page_size: 100 }),
-        fetchAllServices(),
-        packagesApi.list({ page: 1, page_size: 100 }),
-        quotationsApi.list({ page: 1, page_size: 100 }),
-        invoicesApi.list({ page: 1, page_size: 100 }),
-        paymentsApi.list({ page: 1, page_size: 100 }),
-        expensesApi.list({ page: 1, page_size: 100 }),
-        retainersApi.list({ page: 1, page_size: 100 }),
-        settingsApi.getCompany(),
-      ]);
+      const requestByResource: Record<string, () => Promise<any>> = {
+        clients: () => clientsApi.list({ page: 1, page_size: 100 }),
+        services: fetchServices,
+        packages: async () => {
+          let all: any[] = [];
+          let page = 1;
+          let total = 0;
+          do {
+            const res = await packagesApi.list({ page, page_size: 200 });
+            all = all.concat(res.items || []);
+            total = res.total || 0;
+            page += 1;
+          } while (all.length < total);
+          return { items: all, total, page: 1, page_size: all.length };
+        },
+        quotations: () => quotationsApi.list({ page: 1, page_size: 100 }),
+        invoices: () => invoicesApi.list({ page: 1, page_size: 100 }),
+        payments: () => paymentsApi.list({ page: 1, page_size: 100 }),
+        expenses: () => expensesApi.list({ page: 1, page_size: 100 }),
+        retainers: () => retainersApi.list({ page: 1, page_size: 100 }),
+        settings: () => settingsApi.getCompany(),
+      };
 
-      // 1. Process clients first so related models can look up names
-      const loadedClients: Client[] = clientsRes.status === 'fulfilled'
-        ? (clientsRes.value.items || []).map(adaptClient)
-        : [];
-      setClients(loadedClients);
+      const results = await Promise.allSettled(
+        resourcesToLoad.map(resource => requestByResource[resource]())
+      );
+      const responses: Record<string, any> = {};
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          responses[resourcesToLoad[index]] = result.value;
+          loadedResources.current.add(resourcesToLoad[index]);
+        } else {
+          throw result.reason;
+        }
+      });
 
+      const loadedClients: Client[] = responses.clients
+        ? (responses.clients.items || []).map(adaptClient)
+        : clientsRef.current;
       const localClientMap: Record<string, Client> = {};
-      loadedClients.forEach(c => { localClientMap[c.id] = c; });
+      loadedClients.forEach(client => { localClientMap[client.id] = client; });
+      if (responses.clients) setClients(loadedClients);
 
-      // 2. Services
-      // 2. Services (Full paginated catalogue)
-      const loadedServices: ServiceItem[] = servicesRes.status === 'fulfilled'
-        ? servicesRes.value
-        : [];
-      setServices(loadedServices);
+      if (responses.services) setServices((responses.services || []).map(adaptService));
+      if (responses.packages) setPackages((responses.packages.items || []).map(adaptPackage));
 
-      // 3. Packages
-      const loadedPackages: Package[] = packagesRes.status === 'fulfilled'
-        ? (packagesRes.value.items || []).map(adaptPackage)
-        : [];
-      setPackages(loadedPackages);
-
-      // 4. Quotations
-      const loadedQuotations: Quotation[] = quotationsRes.status === 'fulfilled'
-        ? (quotationsRes.value.items || []).map((q: any) => adaptQuotation(q, localClientMap))
-        : [];
-      setQuotations(loadedQuotations);
+      const loadedQuotations: Quotation[] = responses.quotations
+        ? (responses.quotations.items || []).map((q: any) => adaptQuotation(q, localClientMap))
+        : quotationsRef.current;
+      if (responses.quotations) setQuotations(loadedQuotations);
 
       const localQuoteMap: Record<string, Quotation> = {};
-      loadedQuotations.forEach(q => { localQuoteMap[q.id] = q; });
+      loadedQuotations.forEach(quote => { localQuoteMap[quote.id] = quote; });
 
-      // 5. Invoices
-      const loadedInvoices: Invoice[] = invoicesRes.status === 'fulfilled'
-        ? (invoicesRes.value.items || []).map((inv: any) => adaptInvoice(inv, localClientMap, localQuoteMap))
-        : [];
-      setInvoices(loadedInvoices);
+      const loadedInvoices: Invoice[] = responses.invoices
+        ? (responses.invoices.items || []).map((inv: any) => adaptInvoice(inv, localClientMap, localQuoteMap))
+        : invoicesRef.current;
+      if (responses.invoices) setInvoices(loadedInvoices);
 
       const localInvoiceMap: Record<string, Invoice> = {};
-      loadedInvoices.forEach(i => { localInvoiceMap[i.id] = i; });
+      loadedInvoices.forEach(invoice => { localInvoiceMap[invoice.id] = invoice; });
 
-      // 6. Payments
-      const loadedPayments: PaymentRecord[] = paymentsRes.status === 'fulfilled'
-        ? (paymentsRes.value.items || []).map((p: any) => adaptPayment(p, localClientMap, localInvoiceMap))
-        : [];
-      setPayments(loadedPayments);
-
-      // 7. Expenses
-      const loadedExpenses: Expense[] = expensesRes.status === 'fulfilled'
-        ? (expensesRes.value.items || []).map(adaptExpense)
-        : [];
-      setExpenses(loadedExpenses);
-
-      // 8. Retainers
-      const loadedRetainers: Retainer[] = retainersRes.status === 'fulfilled'
-        ? (retainersRes.value.items || []).map((r: any) => adaptRetainer(r, localClientMap))
-        : [];
-      setRetainers(loadedRetainers);
-
-      // 9. Company Settings
-      if (settingsRes.status === 'fulfilled' && settingsRes.value) {
-        setSettings(adaptCompanySettings(settingsRes.value));
+      if (responses.payments) {
+        setPayments((responses.payments.items || []).map((payment: any) => adaptPayment(payment, localClientMap, localInvoiceMap)));
       }
+      if (responses.expenses) setExpenses((responses.expenses.items || []).map(adaptExpense));
+      if (responses.retainers) {
+        setRetainers((responses.retainers.items || []).map((retainer: any) => adaptRetainer(retainer, localClientMap)));
+      }
+      if (responses.settings) setSettings(adaptCompanySettings(responses.settings));
 
       // Populate notifications for unread/action items
       const notifs: Array<{ id: string; title: string; time: string; read: boolean }> = [];
@@ -303,16 +346,21 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
       setNotifications(notifs);
 
-    } catch (err: any) {
-      setError(err?.message || 'Failed to load records from CRM backend');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isAuthenticated]);
+      } catch (err: any) {
+        setError(err?.message || 'Failed to load records from CRM backend');
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+
+    inFlightLoad.current = loadPromise;
+    await loadPromise;
+    inFlightLoad.current = null;
+  }, [isAuthenticated, pathname, resourcesForPath]);
 
   useEffect(() => {
     loadAllData();
-  }, [loadAllData]);
+  }, [loadAllData, pathname]);
 
   const markNotificationAsRead = (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
@@ -338,14 +386,13 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       for (const s of SEED_SERVICES) {
         await servicesApi.create(toServicePayload(s));
       }
+      loadedResources.current.delete('services');
       await loadAllData();
     } catch (err: any) {
       setError(err?.message || 'Failed to seed initial service catalogue');
     } finally {
       setIsLoading(false);
     }
-    // Keep Neon PostgreSQL as live source of truth; refresh data
-    await loadAllData();
   };
 
   // -----------------------------------------------------------
@@ -466,6 +513,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (updated.internalNotes !== undefined) payload.internal_notes = updated.internalNotes;
     if (updated.status !== undefined) payload.status = updated.status;
     if (updated.rejectionReason !== undefined) payload.rejection_reason = updated.rejectionReason;
+    if (updated.lineItems !== undefined) payload.line_items = updated.lineItems.map(toLineItemPayload);
 
     const res = await quotationsApi.update(id, payload);
     const adapted = adaptQuotation(res, clientMap);
@@ -548,6 +596,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (updated.documentDiscountType !== undefined) payload.document_discount_type = updated.documentDiscountType;
     if (updated.documentDiscountValue !== undefined) payload.document_discount_value = updated.documentDiscountValue;
     if (updated.notes !== undefined) payload.notes = updated.notes;
+    if (updated.lineItems !== undefined) payload.line_items = updated.lineItems.map(toLineItemPayload);
     if (updated.bankDetails !== undefined) payload.bank_details = updated.bankDetails;
     if (updated.status !== undefined) payload.status = updated.status;
 
@@ -751,7 +800,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSearchQuery,
       notifications,
       markNotificationAsRead,
-      refreshData: loadAllData,
+      refreshData: () => loadAllData(true),
       seedCatalogueIfEmpty,
       addClient,
       updateClient,

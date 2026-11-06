@@ -410,12 +410,19 @@ input, select, textarea {
     width: 100% !important;
   }
 
-  tr {
-    break-inside: avoid !important;
-    page-break-inside: avoid !important;
+  /* The outer letterhead body contains the complete document and must be
+     allowed to flow across pages. Protect only actual invoice data rows. */
+  .letterhead-tbody > tr {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
   }
 
-  td, th {
+  .invoice-items-table tr,
+  .payment-history-table tr,
+  .invoice-items-table td,
+  .invoice-items-table th,
+  .payment-history-table td,
+  .payment-history-table th {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }

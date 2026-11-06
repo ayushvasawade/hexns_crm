@@ -108,8 +108,14 @@ class ServiceBase(ApiSchema):
 
     @model_validator(mode="after")
     def valid_prices(self) -> "ServiceBase":
-        if not self.min_price <= self.default_price <= self.max_price:
-            raise ValueError("Prices must satisfy min_price <= default_price <= max_price")
+        if self.min_price < 0 or self.default_price < 0 or self.max_price < 0:
+            raise ValueError("Prices cannot be negative")
+        if self.default_price > 0 and self.min_price > 0 and self.default_price < self.min_price:
+            raise ValueError("default_price must be greater than or equal to min_price")
+        if self.max_price > 0 and self.default_price > 0 and self.max_price < self.default_price:
+            raise ValueError("max_price must be greater than or equal to default_price")
+        if self.max_price > 0 and self.min_price > 0 and self.max_price < self.min_price:
+            raise ValueError("max_price must be greater than or equal to min_price")
         return self
 
 
@@ -192,6 +198,7 @@ class PackageResponse(PackageBase):
 
 class LineItemInput(ApiSchema):
     service_id: UUID | None = None
+    package_id: UUID | None = None
     service_name: str
     category: str | None = None
     description: str
@@ -242,6 +249,14 @@ class DocumentBase(ApiSchema):
     status: str | None = None
     line_items: list[LineItemInput] = Field(min_length=1)
 
+    @model_validator(mode="after")
+    def validate_document_discount(self) -> "DocumentBase":
+        if self.document_discount_value < Decimal("0"):
+            raise ValueError("Discount value cannot be negative")
+        if self.document_discount_type == "percentage" and self.document_discount_value > Decimal("100"):
+            raise ValueError("Document discount percentage cannot exceed 100")
+        return self
+
 
 class QuotationCreate(DocumentBase):
     quotation_number: str
@@ -267,6 +282,24 @@ class QuotationUpdate(ApiSchema):
     status: str | None = None
     rejection_reason: str | None = None
     line_items: list[LineItemInput] | None = None
+
+    @model_validator(mode="after")
+    def validate_invoice_update_discount(self) -> "InvoiceUpdate":
+        if self.document_discount_value is not None:
+            if self.document_discount_value < Decimal("0"):
+                raise ValueError("Discount value cannot be negative")
+            if self.document_discount_type == "percentage" and self.document_discount_value > Decimal("100"):
+                raise ValueError("Document discount percentage cannot exceed 100")
+        return self
+
+    @model_validator(mode="after")
+    def validate_quotation_update_discount(self) -> "QuotationUpdate":
+        if self.document_discount_value is not None:
+            if self.document_discount_value < Decimal("0"):
+                raise ValueError("Discount value cannot be negative")
+            if self.document_discount_type == "percentage" and self.document_discount_value > Decimal("100"):
+                raise ValueError("Document discount percentage cannot exceed 100")
+        return self
 
 
 class QuotationResponse(ApiSchema):

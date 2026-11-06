@@ -1,42 +1,56 @@
 # HEXNS CRM Project Overview
 
-## 1. Project summary
+## 1. What this project is
 
-HEXNS CRM is a billing, quotation, invoicing, and financial-management application for HEXNS Mediaworks. The repository is a monorepo containing:
+HEXNS CRM is a billing and customer-relationship-management application for HEXNS
+Mediaworks. It covers the operational flow from service catalog and client
+management through quotations, invoices, payments, expenses, retainers, reports,
+and company settings.
 
-- A Next.js frontend for the CRM workspace.
-- A FastAPI backend intended to provide the production API.
-- SQLAlchemy and Alembic infrastructure for asynchronous PostgreSQL access and schema migrations.
+The repository is a monorepo:
 
-The project is currently in an early implementation phase. The frontend has a broad working UI surface, while the backend is still primarily an application and database foundation with health endpoints.
+- `frontend/` is the Next.js web application.
+- `backend/` is the FastAPI API, authentication layer, database models, and
+  migrations.
+- The root `package.json` provides convenience commands for the frontend.
+
+The frontend and backend are now connected through the typed API client. The
+backend persists CRM data in PostgreSQL and scopes CRM records to the
+authenticated owner.
 
 ## 2. Technology stack
 
 ### Frontend
 
-- Next.js 15 with the App Router
-- React 19
-- TypeScript
-- CSS Modules and shared global styles
-- `lucide-react` for icons
-- `jspdf` and `xlsx` for document and spreadsheet exports
+- Next.js 15.5 with the App Router
+- React 19.1
+- TypeScript 5
+- CSS Modules and global CSS
+- `lucide-react` icons
+- `jspdf` and `jspdf-autotable` for PDF documents
+- `xlsx` for spreadsheet export
 
 ### Backend
 
-- FastAPI
+- Python 3.12 or newer
+- FastAPI and Uvicorn
 - Pydantic Settings
-- SQLAlchemy 2 with async sessions
-- `asyncpg` for PostgreSQL connectivity
-- Alembic for migrations
-- Pytest, pytest-asyncio, and HTTPX for testing
+- SQLAlchemy 2 async ORM
+- PostgreSQL through `asyncpg`
+- Alembic migrations
+- Argon2 password hashing through `pwdlib`
+- JWT access tokens through `PyJWT`
+- Pytest, pytest-asyncio, and HTTPX
 
-### Planned infrastructure
+### Database
 
-- PostgreSQL-compatible database, configured for Neon
-- Local development frontend on port 3000
-- Local development API on port 8000
+PostgreSQL is the supported database. The configuration is compatible with Neon
+PostgreSQL and uses separate async and synchronous URLs:
 
-## 3. Repository structure
+- `DATABASE_URL` is used by the application.
+- `SYNC_DATABASE_URL` is used by Alembic.
+
+## 3. Repository layout
 
 ```text
 .
@@ -59,17 +73,15 @@ The project is currently in an early implementation phase. The frontend has a br
 │   │   ├── __init__.py
 │   │   ├── api.py                # Versioned API router and health endpoint
 │   │   └── main.py               # FastAPI application factory
-│   ├── alembic/
-│   │   ├── README                # Alembic directory notes
-│   │   ├── env.py                # Async migration environment
-│   │   └── script.py.mako        # Migration file template
-│   ├── tests/
-│   │   └── test_health.py        # Root and versioned health endpoint tests
-│   ├── .env.example              # Backend configuration template
-│   ├── .gitignore
-│   ├── alembic.ini               # Alembic configuration
-│   ├── pytest.ini                # Pytest configuration
-│   └── requirements.txt          # Python dependencies
+│   ├── alembic/                  # Migration environment and revisions
+│   ├── tests/                    # API, security, metadata, and finance tests
+│   ├── .env.example
+│   ├── alembic.ini
+│   ├── pytest.ini
+│   ├── requirements.txt
+│   ├── seed_services.py
+│   ├── seed_user.py
+│   └── verify_e2e.py
 ├── frontend/
 │   ├── public/
 │   │   └── hexns_logo.svg
@@ -124,137 +136,281 @@ The project is currently in an early implementation phase. The frontend has a br
 └── Overview.md                   # This document
 ```
 
-## 4. Product surface
+## 4. Product areas
 
-The frontend currently includes routes for:
+The frontend routes are:
 
-- Dashboard
+| Area | Route | Purpose |
+|---|---|---|
+| Dashboard | `/` | Business summary and navigation |
+| Clients | `/clients` | Client profiles and account information |
+| Services | `/services` | Service catalogue and price tiers |
+| Packages | `/packages` | Bundled services and package pricing |
+| Quotations | `/quotations` | List, create, view, export, and convert quotations |
+| Invoices | `/invoices` | List, create, view, export, and manage invoices |
+| Payments | `/payments` | Record and track invoice payments |
+| Expenses | `/expenses` | Record expenses and reimbursement claims |
+| Retainers | `/retainers` | Recurring client engagements and billing |
+| Reports | `/reports` | Financial and operational summaries |
+| Settings | `/settings` | Company, tax, document, and bank defaults |
+| Login | `/login` | JWT-backed authentication |
+
+The frontend uses `AuthContext` for session restoration and route protection and
+`CrmContext` for loading and mutating all CRM resources. `src/lib/adapters.ts`
+converts API snake_case payloads to the frontend camelCase domain types.
+
+## 5. Backend API
+
+All versioned endpoints use the `/api/v1` prefix. CRM endpoints require a
+Bearer access token.
+
+### Public and authentication endpoints
+
+- `GET /`, `GET /health`, `GET /api/v1/health`
+- `POST /api/v1/auth/login`
+- `GET /api/v1/auth/me`
+
+### Protected resources
+
+The CRM router provides paginated list endpoints with `page`, `page_size`,
+`search`, and resource-specific `status` filters where applicable. Each
+resource also has detail, create, update, and archive/delete operations:
+
+- `/clients`
+- `/services`
+- `/packages`
+- `/quotations`
+- `/invoices`
+- `/payments`
+- `/expenses`
+- `/retainers`
+- `/settings/company` (`GET` and idempotent `PUT`)
+
+Additional workflow endpoints include:
+
+- `POST /api/v1/quotations/{id}/convert` to create an invoice from a quotation.
+
+Interactive OpenAPI documentation is available at
+`http://localhost:8000/docs` while the backend is running.
+
+## 6. Domain and business rules
+
+The database schema currently contains:
+
+- Users
 - Clients
-- Expenses
-- Invoices, including create and detail views
-- Payments
-- Quotations, including create and detail views
-- Reports
-- Retainers
 - Services
-- Packages
-- Settings
+- Packages and package items
+- Quotations and quotation line items
+- Invoices and invoice line items
+- Payments
+- Expenses
+- Retainers
+- Company settings
 
-Shared frontend functionality includes:
+Important behavior:
 
-- Application shell and navigation
-- Reusable badges and modal components
-- CRM context/state management
-- Financial calculations and formatting helpers
-- PDF and spreadsheet export helpers
-- A base API client using `NEXT_PUBLIC_API_URL`
+- CRM records carry an `owner_id`; queries and mutations only operate on records
+  owned by the authenticated user.
+- Passwords are stored as Argon2 hashes, never as plaintext.
+- Access tokens are signed JWTs with an expiration time.
+- Service prices must satisfy `min_price <= default_price <= max_price`.
+- Monetary values use `Decimal` and are rounded to two decimal places using
+  half-up rounding.
+- Line-level discounts and document-level discounts are validated and allocated
+  across taxable line amounts.
+- Intra-state tax is split into CGST and SGST; inter-state tax is recorded as
+  IGST.
+- Payment recording updates invoice payment totals while protecting the update
+  with row locking.
+- Delete-style endpoints archive or deactivate records where appropriate rather
+  than necessarily removing business history.
 
-At present, the frontend includes seed data and client-side behavior. The API client is prepared for backend integration, but the domain routes are not yet connected to backend endpoints.
-
-## 5. Backend status
-
-### Available now
-
-- FastAPI application factory and lifespan logging
-- CORS configuration for local frontend origins
-- Root endpoint: `GET /`
-- Health endpoints:
-  - `GET /health`
-  - `GET /api/v1/health`
-- Centralized handlers for application exceptions, validation errors, and unexpected errors
-- Pydantic-based environment configuration
-- Async SQLAlchemy engine and request-scoped database sessions
-- Alembic environment configured for asynchronous migrations
-- Initial health endpoint tests
-
-### Implemented & Active
-
-- Authentication module with JWT tokens and Argon2 password hashing
-- Unified CRM domain module (backend/app/modules/crm/) and SQLAlchemy models (backend/app/models/crm.py)
-- Alembic database migration revisions
-- Endpoints for Clients, Services, Packages, Quotations, Invoices, Payments, Expenses, Retainers, and Reports
-- Automated test suite covering foundation, health, and business logic.
-
-## 6. Running the project locally
+## 7. Local development setup
 
 ### Prerequisites
 
-- Python 3.12 or newer
-- Node.js 20 or newer
+- Python 3.12+
+- Node.js 20+
 - npm
-- PostgreSQL or a Neon PostgreSQL database for backend persistence
+- A PostgreSQL database for backend integration
 
-### Frontend
+### 7.1 Configure the backend
 
-From the repository root:
-
-```bash
-npm install --prefix frontend
-npm run dev
-```
-
-The frontend starts at `http://localhost:3000`.
-
-### Backend
-
-From the repository root:
+From the repository root in PowerShell:
 
 ```powershell
 cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 Copy-Item .env.example .env
+```
+
+Edit `backend/.env` and set:
+
+```dotenv
+DATABASE_URL=postgresql+asyncpg://USER:PASSWORD@HOST/DATABASE?ssl=require
+SYNC_DATABASE_URL=postgresql://USER:PASSWORD@HOST/DATABASE?sslmode=require
+JWT_SECRET_KEY=use-a-long-random-secret
+```
+
+Keep real credentials and secrets only in ignored `.env` files. For staging or
+production, use a JWT secret of at least 32 characters and do not use the
+development default.
+
+### 7.2 Apply migrations and seed development data
+
+With the backend virtual environment active:
+
+```powershell
+alembic upgrade head
+python seed_user.py
+python seed_services.py
+```
+
+`seed_user.py` accepts optional positional arguments for email, password, and
+full name. Use a development-only account and password; never use seed
+credentials in production.
+
+### 7.3 Start the backend
+
+```powershell
 uvicorn app.main:app --reload --port 8000
 ```
 
-The API starts at `http://localhost:8000`. Interactive documentation is available at `/docs`.
+The API is available at `http://localhost:8000`. Check
+`http://localhost:8000/api/v1/health` and open
+`http://localhost:8000/docs` to verify it is running.
 
-Update `backend/.env` with a real `DATABASE_URL` before using database-backed functionality or migrations.
+### 7.4 Configure and start the frontend
 
-### Tests and quality checks
-
-From the repository root:
+In a second terminal:
 
 ```powershell
-python -m pytest backend\tests -q
+cd frontend
+npm install
+Copy-Item .env.example .env.local
+npm run dev
+```
+
+The frontend uses `NEXT_PUBLIC_API_URL` from `frontend/.env.local`. The default
+value is:
+
+```dotenv
+NEXT_PUBLIC_API_URL=http://127.0.0.1:8000/api/v1
+```
+
+Open `http://localhost:3000`.
+
+From the repository root, equivalent convenience commands are:
+
+```powershell
+npm install --prefix frontend
+npm run dev
 npm run lint
 npm run build
 ```
 
-The backend test dependencies must be installed in the active Python environment before running the tests.
+## 8. Database migrations
 
-## 7. Configuration
+Run Alembic commands from `backend/` with the virtual environment active:
 
-The backend reads settings from `backend/.env`, including:
-
-- `ENVIRONMENT`
-- `DEBUG`
-- `CORS_ORIGINS`
-- `DATABASE_URL`
-- `SYNC_DATABASE_URL`
-- Database pool settings
-
-The frontend API base URL is controlled by:
-
-```text
-NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+```powershell
+alembic current
+alembic upgrade head
+alembic downgrade -1
+alembic revision --autogenerate -m "describe_change"
 ```
 
-Secrets and real database credentials must remain in ignored `.env` files and must not be committed.
+Review autogenerated migrations before applying them. The committed revisions
+are:
 
-## 8. Development roadmap
+- `20261026_initial_crm_schema.py`
+- `20261026_add_owner_scope.py`
 
-The recommended implementation order is:
+Do not run migrations until `SYNC_DATABASE_URL` points to the intended database.
 
-1. Define the core SQLAlchemy models and the initial Alembic migration.
-2. Add authentication, user roles, and secure session/token handling.
-3. Implement clients, services, quotations, invoices, payments, and expenses as domain modules.
-4. Add dashboard aggregates and reporting endpoints.
-5. Replace frontend seed data with API-backed queries and mutations.
-6. Add request, authorization, database, and end-to-end test coverage.
-7. Add production configuration, observability, deployment automation, and backup procedures.
+## 9. Testing and quality checks
 
-## 9. Current project assessment
+Backend tests:
 
-The repository is a strong structural starting point for a modular CRM, with the primary user-facing navigation and frontend workflow areas already laid out. The main delivery gap is backend implementation: business data models, persistence, authentication, and API contracts must be built before the application can operate as a connected production system.
+```powershell
+cd backend
+.\.venv\Scripts\Activate.ps1
+python -m pytest -q
+```
+
+Frontend checks:
+
+```powershell
+cd frontend
+npm run lint
+npm run build
+```
+
+The tests cover health responses, authentication, password hashing, expired
+tokens, metadata registration, owner-scoped endpoint protection, GST/tax
+calculation, discount validation, and money rounding.
+
+For an end-to-end smoke check against a configured database and running API,
+review and run `backend/verify_e2e.py` according to its required environment.
+
+## 10. Configuration reference
+
+### Backend (`backend/.env`)
+
+- `PROJECT_NAME`, `VERSION`
+- `ENVIRONMENT`, `DEBUG`
+- `CORS_ORIGINS`
+- `DATABASE_URL`, `SYNC_DATABASE_URL`
+- `DATABASE_POOL_SIZE`, `DATABASE_MAX_OVERFLOW`,
+  `DATABASE_POOL_PRE_PING`, `DATABASE_ECHO`
+- `JWT_SECRET_KEY`, `JWT_ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES`
+
+### Frontend (`frontend/.env.local`)
+
+- `NEXT_PUBLIC_API_URL`: FastAPI URL including `/api/v1`
+
+The backend settings load `.env` relative to the process working directory, so
+start the backend commands from `backend/`.
+
+## 11. Security and operational notes
+
+- Never commit `.env`, `.env.local`, database URLs, JWT secrets, or real user
+  credentials.
+- Restrict `CORS_ORIGINS` to the actual frontend origins outside local
+  development.
+- Replace development secrets before staging or production deployment.
+- Use HTTPS for deployed frontend/API traffic.
+- Review generated migrations and back up the database before production
+  migrations.
+- The frontend stores the access token in memory with a local-storage fallback;
+  treat browser access and XSS prevention as security-sensitive.
+
+## 12. Current limitations and next steps
+
+- Deployment, background jobs, file/object storage, email delivery, and
+  observability are not defined in this repository.
+- Reports and dashboard aggregation are primarily frontend concerns today.
+- The frontend still contains seed catalogue/settings data as fallback behavior;
+  verify the database-backed path when integrating a new environment.
+- Add role/permission policies beyond the current authenticated-owner boundary
+  before introducing multiple staff roles.
+- Add CI, production deployment configuration, database backups, and broader
+  end-to-end coverage before release.
+
+## 13. Useful source locations
+
+- Backend application factory: `backend/app/main.py`
+- API registration: `backend/app/api.py`
+- Runtime settings: `backend/app/core/config.py`
+- Database session setup: `backend/app/core/database.py`
+- SQLAlchemy entities: `backend/app/models/`
+- Authentication: `backend/app/modules/auth/`
+- CRM routes and workflows: `backend/app/modules/crm/router.py`
+- Financial calculations: `backend/app/modules/crm/finance.py`
+- Frontend API client: `frontend/src/lib/api.ts`
+- Frontend state and API orchestration: `frontend/src/context/CrmContext.tsx`
+- Frontend authentication: `frontend/src/context/AuthContext.tsx`
+- Frontend/backend payload adapters: `frontend/src/lib/adapters.ts`
