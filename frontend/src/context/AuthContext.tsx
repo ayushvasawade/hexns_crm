@@ -65,9 +65,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!storedToken) {
         if (isMounted) {
           setIsLoading(false);
-          if (pathname !== '/login') {
-            router.push('/login');
-          }
         }
         return;
       }
@@ -97,7 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       isMounted = false;
     };
-  }, [logout]);
+  }, [logout, user]);
 
   // Route protection
   useEffect(() => {

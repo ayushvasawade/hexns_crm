@@ -23,13 +23,14 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ]
+    CORS_ORIGIN_REGEX: Union[str, None] = None
     DATABASE_URL: str = Field(
         default="postgresql+asyncpg://USER:PASSWORD@ep-example.neon.tech/hexns_crm?ssl=require",
         description="Async PostgreSQL connection string",
     )
-    SYNC_DATABASE_URL: str = Field(
-        default="postgresql+psycopg2://USER:PASSWORD@ep-example.neon.tech/hexns_crm?sslmode=require",
-        description="Synchronous PostgreSQL connection string for Alembic",
+    SYNC_DATABASE_URL: Union[str, None] = Field(
+        default=None,
+        description="Synchronous PostgreSQL connection string for Alembic (derived from DATABASE_URL if omitted)",
     )
     DATABASE_POOL_SIZE: int = 10
     DATABASE_MAX_OVERFLOW: int = 10
@@ -46,10 +47,13 @@ class Settings(BaseSettings):
             v = v.strip()
             if v.startswith("[") and v.endswith("]"):
                 try:
-                    return json.loads(v)
+                    origins = json.loads(v)
+                    return [str(o).strip().rstrip("/") for o in origins if str(o).strip()]
                 except Exception:
                     pass
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
+            return [origin.strip().rstrip("/") for origin in v.split(",") if origin.strip()]
+        if isinstance(v, list):
+            return [str(origin).strip().rstrip("/") for origin in v if str(origin).strip()]
         return v
 
     @field_validator("DATABASE_URL", mode="before")
@@ -66,14 +70,15 @@ class Settings(BaseSettings):
 
     @field_validator("SYNC_DATABASE_URL", mode="before")
     @classmethod
-    def normalize_sync_database_url(cls, v: str) -> str:
-        if isinstance(v, str):
+    def normalize_sync_database_url(cls, v: Union[str, None]) -> Union[str, None]:
+        if isinstance(v, str) and v.strip():
             v = v.strip()
             if v.startswith("postgres://"):
                 v = "postgresql+psycopg2://" + v[len("postgres://"):]
             elif v.startswith("postgresql://") and not v.startswith("postgresql+psycopg2://"):
                 v = "postgresql+psycopg2://" + v[len("postgresql://"):]
-        return v
+            return v
+        return None
 
     @property
     def database_is_configured(self) -> bool:
@@ -86,7 +91,17 @@ class Settings(BaseSettings):
         )
 
     @model_validator(mode="after")
-    def validate_auth_configuration(self) -> "Settings":
+    def validate_configuration(self) -> "Settings":
+        if not self.SYNC_DATABASE_URL and self.DATABASE_URL:
+            derived = self.DATABASE_URL
+            if derived.startswith("postgresql+asyncpg://"):
+                derived = "postgresql+psycopg2://" + derived[len("postgresql+asyncpg://"):]
+            elif derived.startswith("postgres://"):
+                derived = "postgresql+psycopg2://" + derived[len("postgres://"):]
+            elif derived.startswith("postgresql://"):
+                derived = "postgresql+psycopg2://" + derived[len("postgresql://"):]
+            self.SYNC_DATABASE_URL = derived.replace("ssl=require", "sslmode=require")
+
         if self.ENVIRONMENT in {"production", "staging"}:
             if self.JWT_SECRET_KEY == "development-only-change-me-use-a-long-secret":
                 raise ValueError("JWT_SECRET_KEY must be configured outside development")

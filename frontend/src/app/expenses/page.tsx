@@ -5,35 +5,19 @@ import {
   Wallet, 
   Search, 
   Plus, 
-  Filter, 
   Paperclip, 
-  Calendar, 
-  Tag, 
-  CheckCircle,
-  Building,
-  CreditCard,
-  Eye,
-  Edit2,
-  Copy,
-  Trash2,
-  Clock,
-  AlertTriangle,
-  RotateCcw,
-  Check,
-  X,
-  FileText,
-  UploadCloud,
-  ChevronRight,
-  TrendingDown,
-  DollarSign,
-  Download,
-  Users,
-  Briefcase,
-  Layers,
-  ArrowUpRight
+  Eye, 
+  Edit2, 
+  Copy, 
+  Trash2, 
+  RotateCcw, 
+  X, 
+  FileText, 
+  UploadCloud, 
+  Download
 } from 'lucide-react';
 import { useCrm } from '../../context/CrmContext';
-import { Expense, ExpenseCategory, ExpenseRecurrence, ExpenseStatus, ReimbursementStatus } from '../../types/crm';
+import { Expense, ExpenseCategory, ExpenseRecurrence, ExpenseStatus } from '../../types/crm';
 import { formatINR, formatDate } from '../../lib/formatters';
 import { isDateInRange } from '../../lib/financialCalculations';
 import { Badge } from '../../components/ui/Badge';
@@ -1644,6 +1628,7 @@ export default function ExpensesPage() {
         >
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
             {previewReceiptUrl.startsWith('data:image/') ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
               <img 
                 src={previewReceiptUrl} 
                 alt="Receipt Preview" 

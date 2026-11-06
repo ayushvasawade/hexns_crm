@@ -1,7 +1,7 @@
 """Seed script to restore the complete 202-service catalogue and packages to Neon PostgreSQL for admin@hexns.com.
 
 Ensures:
-1. All 202 genuine services across Sections 01-16 are inserted/updated with exact rates and categories from hexnsmedia_crm_service_rates(1)(1).md.
+1. All 202 genuine services across Sections 01-16 are inserted/updated with exact rates and categories from hexnsmedia_crm_service_rates.md.
 2. Services with Base Rate = 0 and Minimum Rate = 0 are fully preserved as valid source data (not skipped).
 3. All 12 packages from Section 17 are seeded and kept up to date.
 4. Synthetic test records (e.g., 'AI Brand Video Production <hash>') are safely unlinked and removed.
@@ -27,11 +27,12 @@ from app.models.crm import Service, Package, PackageItem, QuotationLineItem, Inv
 
 
 def find_markdown_file() -> Path | None:
-    """Locate hexnsmedia_crm_service_rates(1)(1).md or similar markdown file."""
+    """Locate hexnsmedia_crm_service_rates.md or similar markdown file."""
     candidates = [
+        Path(__file__).resolve().parent.parent / "hexnsmedia_crm_service_rates.md",
+        Path(__file__).resolve().parent / "hexnsmedia_crm_service_rates.md",
+        Path.cwd() / "hexnsmedia_crm_service_rates.md",
         Path(__file__).resolve().parent.parent / "hexnsmedia_crm_service_rates(1)(1).md",
-        Path(__file__).resolve().parent / "hexnsmedia_crm_service_rates(1)(1).md",
-        Path.cwd() / "hexnsmedia_crm_service_rates(1)(1).md",
     ]
     for p in candidates:
         if p.exists() and p.stat().st_size > 0:

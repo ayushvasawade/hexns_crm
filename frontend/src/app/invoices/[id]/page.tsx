@@ -2,15 +2,10 @@
 
 import React, { use, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { 
   ArrowLeft, 
   Printer, 
   CreditCard, 
-  CheckCircle2, 
-  FileText,
-  Clock,
-  AlertCircle,
   Download
 } from 'lucide-react';
 import { useCrm } from '../../../context/CrmContext';
@@ -22,7 +17,6 @@ import { LetterheadLayout } from '../../../components/document/LetterheadLayout'
 import { PricingSelector } from '../../../components/document/PricingSelector';
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const router = useRouter();
   const resolvedParams = use(params);
   const { invoices, payments, settings, recordPayment, updateInvoice } = useCrm();
 

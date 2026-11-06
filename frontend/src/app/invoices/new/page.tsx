@@ -5,19 +5,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
   ArrowLeft, 
-  Plus, 
   Trash2, 
-  Save, 
   Check, 
   FileText,
-  Search,
-  Building,
-  CheckCircle2,
   X
 } from 'lucide-react';
 import { useCrm } from '../../../context/CrmContext';
 import { DocumentLineItem } from '../../../types/crm';
-import { formatINR, formatDate, numberToWordsINR } from '../../../lib/formatters';
+import { formatINR } from '../../../lib/formatters';
 import { PricingSelector } from '../../../components/document/PricingSelector';
 
 export default function NewInvoicePage() {
@@ -178,7 +173,6 @@ export default function NewInvoicePage() {
     const service = services.find(item => item.id === serviceId);
     if (!service) return;
 
-    const isZeroRate = service.defaultPrice === 0 && service.minPrice === 0;
     const selectedTier: 'DEFAULT' | 'MIN' | 'CUSTOM' = service.defaultPrice > 0 ? 'DEFAULT' : service.minPrice > 0 ? 'MIN' : 'CUSTOM';
     const unitPrice = service.defaultPrice > 0 ? service.defaultPrice : service.minPrice;
 

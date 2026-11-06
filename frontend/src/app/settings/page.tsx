@@ -2,15 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  Settings, 
-  Building, 
-  CreditCard, 
-  ShieldCheck, 
-  Hash, 
-  FileText, 
   Save, 
   CheckCircle2,
-  Users,
   UploadCloud,
   Image as ImageIcon,
   Trash2,

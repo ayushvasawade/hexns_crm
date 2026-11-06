@@ -1,17 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
 import { 
-  Repeat, 
   Search, 
   Plus, 
-  Calendar, 
-  Check, 
-  Clock, 
   Eye, 
-  Building,
-  DollarSign,
   Edit,
   Play,
   Pause,
@@ -25,7 +18,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 
 export default function RetainersPage() {
-  const { retainers, clients, services, addRetainer, updateRetainer, deleteRetainer } = useCrm();
+  const { retainers, clients, addRetainer, updateRetainer, deleteRetainer } = useCrm();
 
   const [search, setSearch] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);

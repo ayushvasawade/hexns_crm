@@ -3,15 +3,8 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { 
-  CreditCard, 
   Search, 
   Plus, 
-  CheckCircle2, 
-  ArrowUpRight, 
-  FileText,
-  Clock,
-  Building,
-  Check,
   Download
 } from 'lucide-react';
 import { useCrm } from '../../context/CrmContext';
@@ -20,7 +13,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 
 export default function PaymentsPage() {
-  const { payments, invoices, clients, recordPayment } = useCrm();
+  const { payments, invoices, recordPayment } = useCrm();
 
   const [search, setSearch] = useState('');
   const [modeFilter, setModeFilter] = useState('All');

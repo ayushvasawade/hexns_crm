@@ -30,13 +30,16 @@ def create_application() -> FastAPI:
     )
 
     # Configure CORS
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.CORS_ORIGINS,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    cors_kwargs = {
+        "allow_origins": settings.CORS_ORIGINS,
+        "allow_credentials": False if "*" in settings.CORS_ORIGINS else True,
+        "allow_methods": ["*"],
+        "allow_headers": ["*"],
+    }
+    if settings.CORS_ORIGIN_REGEX:
+        cors_kwargs["allow_origin_regex"] = settings.CORS_ORIGIN_REGEX
+
+    app.add_middleware(CORSMiddleware, **cors_kwargs)
 
     # Register centralized exception handlers
     register_exception_handlers(app)

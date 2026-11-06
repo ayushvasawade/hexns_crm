@@ -22,19 +22,11 @@ import {
 
   Check, 
 
-  Eye, 
-
   Printer, 
 
   Save, 
 
-  FileText,
-
   UserPlus,
-
-  Layers,
-
-  Info,
 
   Search,
 
@@ -42,15 +34,13 @@ import {
 
   CheckCircle2,
 
-  X,
-
-  Edit2
+  X
 
 } from 'lucide-react';
 
 import { useCrm } from '../../../context/CrmContext';
 
-import { Client, DocumentLineItem, PriceTier } from '../../../types/crm';
+import { DocumentLineItem, PriceTier } from '../../../types/crm';
 
 import { formatINR, formatDate, numberToWordsINR } from '../../../lib/formatters';
 
@@ -105,14 +95,7 @@ export default function QuotationBuilderPage() {
   const [serviceSearchTerm, setServiceSearchTerm] = useState('');
   const [selectedPackageToAdd, setSelectedPackageToAdd] = useState(packages[0]?.id || '');
 
-  const [customItemName, setCustomItemName] = useState('');
-
-  const [customItemPrice, setCustomItemPrice] = useState(10000);
-
-
-
   const [lineItems, setLineItems] = useState<DocumentLineItem[]>([]);
-
 
   // Stepper 4: Discounts and GST
 
@@ -120,21 +103,19 @@ export default function QuotationBuilderPage() {
 
   const [documentDiscountValue, setDocumentDiscountValue] = useState<number>(0);
 
-
-
   // Stepper 5: Terms & Preview
 
   const [paymentTerms, setPaymentTerms] = useState('50% Advance + 50% Before Delivery');
 
   const [deliveryTimeline, setDeliveryTimeline] = useState('30 Days from advance sign-off');
 
-  const [scopeNotes, setScopeNotes] = useState('Includes 2 rounds of creative revisions for each deliverable.');
+  const [scopeNotes] = useState('Includes 2 rounds of creative revisions for each deliverable.');
 
-  const [exclusions, setExclusions] = useState('Third-party ad spends and model fees are payable directly by the client.');
+  const [exclusions] = useState('Third-party ad spends and model fees are payable directly by the client.');
 
   const [termsAndConditions, setTermsAndConditions] = useState(settings.quotationTerms);
 
-  const [internalNotes, setInternalNotes] = useState('');
+  const [internalNotes] = useState('');
 
 
 
@@ -341,7 +322,6 @@ export default function QuotationBuilderPage() {
     }
 
 
-    const isZeroRate = srv.defaultPrice === 0 && srv.minPrice === 0;
     const initialTier: PriceTier = srv.defaultPrice > 0 ? 'DEFAULT' : srv.minPrice > 0 ? 'MIN' : 'CUSTOM';
     const initialPrice = srv.defaultPrice > 0 ? srv.defaultPrice : srv.minPrice;
 
@@ -521,61 +501,7 @@ export default function QuotationBuilderPage() {
 
   // Handle adding custom item
 
-  const handleAddCustomItem = () => {
 
-    if (!customItemName) return;
-
-    const newItem: DocumentLineItem = {
-
-      id: `li-custom-${Date.now()}`,
-
-      serviceName: customItemName,
-
-      category: 'Custom Scope',
-
-      description: 'Custom client negotiated service deliverable',
-
-      sacCode: '998311',
-
-      quantity: 1,
-
-      billingUnit: 'Per Deliverable',
-
-      minPrice: customItemPrice,
-
-      defaultPrice: customItemPrice,
-
-      maxPrice: customItemPrice * 1.5,
-
-      selectedTier: 'CUSTOM',
-
-      negotiatedUnitPrice: customItemPrice,
-
-      isBelowMinWarning: false,
-
-      itemDiscountType: 'fixed',
-
-      itemDiscountValue: 0,
-
-      itemDiscountAmount: 0,
-
-      lineSubtotal: customItemPrice,
-
-      taxableAmount: customItemPrice,
-
-      gstRate: 18,
-
-      taxAmount: Math.round(customItemPrice * 0.18),
-
-      lineTotal: Math.round(customItemPrice * 1.18)
-
-    };
-
-    setLineItems(prev => [...prev, newItem]);
-
-    setCustomItemName('');
-
-  };
 
 
 
@@ -3715,6 +3641,26 @@ export default function QuotationBuilderPage() {
               </select>
 
             </div>
+
+          </div>
+
+          <div>
+
+            <label style={{ fontSize: '12px', fontWeight: 600 }}>Billing Email</label>
+
+            <input 
+
+              type="email" 
+
+              placeholder="billing@client.com"
+
+              value={modalEmail}
+
+              onChange={(e) => setModalEmail(e.target.value)}
+
+              style={{ width: '100%', padding: '0.5rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '4px' }}
+
+            />
 
           </div>
 

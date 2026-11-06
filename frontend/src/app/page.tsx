@@ -8,13 +8,11 @@ import {
   Clock, 
   CheckCircle2, 
   AlertCircle, 
-  ArrowUpRight,
   FileText,
   DollarSign,
   Users,
   CreditCard,
-  Layers,
-  ChevronRight
+  Layers
 } from 'lucide-react';
 import styles from './page.module.css';
 import { useCrm } from '../context/CrmContext';
@@ -28,7 +26,7 @@ import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 
 export default function DashboardPage() {
-  const { clients, quotations, invoices, payments, services, expenses, addClient, recordPayment } = useCrm();
+  const { quotations, invoices, payments, services, expenses, addClient, recordPayment } = useCrm();
   const [dateRange, setDateRange] = useState('All Time');
 
   // Modals for Quick Actions
@@ -74,7 +72,6 @@ export default function DashboardPage() {
 
   const paidInvoicesCount = filteredInvoices.filter(inv => inv.status === 'Paid').length;
   const partialInvoicesCount = filteredInvoices.filter(inv => inv.status === 'Partially Paid').length;
-  const overdueInvoicesCount = filteredInvoices.filter(inv => inv.status === 'Overdue').length;
 
   const avgQuotationValue = totalQuotesCount > 0 
     ? filteredQuotations.reduce((acc, q) => acc + q.grandTotal, 0) / totalQuotesCount 
