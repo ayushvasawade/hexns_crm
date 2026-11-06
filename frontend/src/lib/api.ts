@@ -60,7 +60,7 @@ interface FetchOptions extends RequestInit {
 }
 
 export async function fetchApi<T>(endpoint: string, options: FetchOptions = {}): Promise<T> {
-  const { params, skipAuth = false, timeoutMs = 15000, signal, ...fetchOptions } = options;
+  const { params, skipAuth = false, timeoutMs = 60000, signal, ...fetchOptions } = options;
   const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
   let url = `${API_BASE_URL}${path}`;
