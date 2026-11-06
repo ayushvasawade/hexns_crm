@@ -19,3 +19,8 @@ build/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Generated Test Artifacts & Media
+*.pdf
+*.png
+*.jpg

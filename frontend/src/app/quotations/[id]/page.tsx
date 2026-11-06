@@ -21,7 +21,8 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
   const resolvedParams = use(params);
   const { quotations, settings, updateQuotation, updateQuotationStatus, convertQuotationToInvoice } = useCrm();
 
-  const quote = quotations.find(q => q.id === resolvedParams.id);
+  const decodedId = decodeURIComponent(resolvedParams.id).toLowerCase();
+  const quote = quotations.find(q => q.id.toLowerCase() === decodedId || q.quotationNumber?.toLowerCase() === decodedId);
   const [editingPricing, setEditingPricing] = useState(false);
   const [draftLines, setDraftLines] = useState(quote?.lineItems || []);
   useEffect(() => {

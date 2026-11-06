@@ -17,8 +17,3 @@ async def health_check() -> dict:
         "version": settings.VERSION,
         "environment": settings.ENVIRONMENT,
     }
-
-
-# Future module routers will be registered here, e.g.:
-# api_router.include_router(auth_router, prefix="/auth", tags=["Auth"])
-# api_router.include_router(clients_router, prefix="/clients", tags=["Clients"])

@@ -56,12 +56,22 @@ PostgreSQL and uses separate async and synchronous URLs:
 .
 ├── backend/
 │   ├── app/
-│   │   ├── core/                 # Configuration, database, errors, logging
-│   │   ├── models/               # SQLAlchemy User and CRM entities
+│   │   ├── core/
+│   │   │   ├── __init__.py
+│   │   │   ├── config.py         # Environment and application settings
+│   │   │   ├── database.py       # Async SQLAlchemy engine and sessions
+│   │   │   ├── exceptions.py     # API exception definitions and handlers
+│   │   │   └── logging.py        # Application logging configuration
+│   │   ├── models/
+│   │   │   ├── __init__.py
+│   │   │   ├── crm.py            # Relational database models for CRM
+│   │   │   └── user.py           # User authentication and credentials model
 │   │   ├── modules/
-│   │   │   ├── auth/             # Login, JWT, current-user dependency
-│   │   │   └── crm/              # CRM schemas, finance, and API routes
-│   │   ├── api.py                # /api/v1 router registration
+│   │   │   ├── __init__.py
+│   │   │   ├── auth/             # Authentication & session router
+│   │   │   └── crm/              # Unified CRM domain router & schemas
+│   │   ├── __init__.py
+│   │   ├── api.py                # Versioned API router and health endpoint
 │   │   └── main.py               # FastAPI application factory
 │   ├── alembic/                  # Migration environment and revisions
 │   ├── tests/                    # API, security, metadata, and finance tests
@@ -73,17 +83,57 @@ PostgreSQL and uses separate async and synchronous URLs:
 │   ├── seed_user.py
 │   └── verify_e2e.py
 ├── frontend/
-│   ├── src/app/                  # App Router pages
-│   ├── src/components/           # Shared layout and UI components
-│   ├── src/context/              # AuthContext and CrmContext
-│   ├── src/data/                 # Initial catalogue/settings data
-│   ├── src/lib/                  # API, adapters, calculations, exports
-│   ├── src/types/                # Frontend domain types
-│   ├── .env.example
-│   └── package.json
-├── package.json                  # Root frontend commands
-├── README.md                     # Short setup guide
-└── overview.md                   # This document
+│   ├── public/
+│   │   └── hexns_logo.svg
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── clients/page.tsx
+│   │   │   ├── expenses/page.tsx
+│   │   │   ├── invoices/
+│   │   │   │   ├── page.tsx
+│   │   │   │   ├── new/page.tsx
+│   │   │   │   └── [id]/page.tsx
+│   │   │   ├── packages/page.tsx
+│   │   │   ├── payments/page.tsx
+│   │   │   ├── quotations/
+│   │   │   │   ├── page.tsx
+│   │   │   │   ├── new/page.tsx
+│   │   │   │   └── [id]/page.tsx
+│   │   │   ├── reports/page.tsx
+│   │   │   ├── retainers/page.tsx
+│   │   │   ├── services/page.tsx
+│   │   │   ├── settings/page.tsx
+│   │   │   ├── favicon.ico
+│   │   │   ├── globals.css
+│   │   │   ├── layout.tsx
+│   │   │   ├── page.module.css
+│   │   │   └── page.tsx
+│   │   ├── components/
+│   │   │   ├── layout/
+│   │   │   │   ├── AppShell.module.css
+│   │   │   │   └── AppShell.tsx
+│   │   │   └── ui/
+│   │   │       ├── Badge.tsx
+│   │   │       └── Modal.tsx
+│   │   ├── context/CrmContext.tsx
+│   │   ├── data/seedData.ts
+│   │   ├── lib/
+│   │   │   ├── api.ts
+│   │   │   ├── exportUtils.ts
+│   │   │   ├── financialCalculations.ts
+│   │   │   └── formatters.ts
+│   │   └── types/
+│   │       ├── crm.ts
+│   │       └── index.ts
+│   ├── eslint.config.mjs
+│   ├── next-env.d.ts
+│   ├── next.config.ts
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── README.md
+├── package.json                  # Root development scripts
+├── README.md                     # Setup guide
+└── Overview.md                   # This document
 ```
 
 ## 4. Product areas

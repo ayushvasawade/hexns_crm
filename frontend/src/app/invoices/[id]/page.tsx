@@ -26,7 +26,8 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const resolvedParams = use(params);
   const { invoices, payments, settings, recordPayment, updateInvoice } = useCrm();
 
-  const invoice = invoices.find(inv => inv.id === resolvedParams.id);
+  const decodedId = decodeURIComponent(resolvedParams.id).toLowerCase();
+  const invoice = invoices.find(inv => inv.id.toLowerCase() === decodedId || inv.invoiceNumber?.toLowerCase() === decodedId);
   const [editingPricing, setEditingPricing] = useState(false);
   const [draftLines, setDraftLines] = useState(invoice?.lineItems || []);
   React.useEffect(() => {

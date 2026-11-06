@@ -6,7 +6,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.main import app
 from app.modules.crm.finance import apply_document_totals, money, validate_line_price
-from app.modules.crm.router import default_company_settings, paging
+from app.modules.crm.router import default_company_settings, paging, resolve_date_range
 
 
 def test_document_totals_use_decimal_and_split_gst():
@@ -129,6 +129,8 @@ async def test_every_crm_endpoint_requires_authentication():
             "/api/v1/expenses",
             "/api/v1/retainers",
             "/api/v1/settings/company",
+            "/api/v1/analytics/financial-metrics",
+            "/api/v1/analytics/dashboard-summary",
         ):
             response = await client.get(path)
             assert response.status_code == 401, path
@@ -310,3 +312,26 @@ def test_service_base_schema_pricing_matrix():
     )
     assert s4.min_price == Decimal("10000")
     assert s4.default_price == Decimal("0")
+
+
+def test_resolve_date_range_presets():
+    from datetime import date
+    # All Time returns None
+    start, end = resolve_date_range("All Time", None, None)
+    assert start is None and end is None
+
+    # Explicit custom dates override preset
+    d1 = date(2026, 1, 1)
+    d2 = date(2026, 1, 31)
+    s, e = resolve_date_range("This Month", d1, d2)
+    assert s == d1 and e == d2
+
+    # This Month
+    s, e = resolve_date_range("This Month", None, None)
+    assert s.day == 1
+    assert e >= s
+
+    # Indian Financial Year
+    s, e = resolve_date_range("This Financial Year (FY 26-27)", None, None)
+    assert s.month == 4 and s.day == 1
+    assert e.month == 3 and e.day == 31
