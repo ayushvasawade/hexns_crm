@@ -1,37 +1,21 @@
 @echo off
-setlocal EnableDelayedExpansion
-
-:: =============================================================================
-:: HEXNS CRM - Graceful Shutdown System (Windows)
-:: =============================================================================
+setlocal
 title HEXNS CRM Shutdown
 cd /d "%~dp0"
 
 if exist "backend\.venv\Scripts\python.exe" (
-    backend\.venv\Scripts\python.exe scripts\launcher.py stop
-    goto :done
+    "backend\.venv\Scripts\python.exe" "scripts\launcher.py" stop
+    exit /b %ERRORLEVEL%
 )
-
+where py >nul 2>&1
+if %ERRORLEVEL% equ 0 (
+    py -3 "scripts\launcher.py" stop
+    exit /b %ERRORLEVEL%
+)
 where python >nul 2>&1
 if %ERRORLEVEL% equ 0 (
-    python scripts\launcher.py stop
-    goto :done
+    python "scripts\launcher.py" stop
+    exit /b %ERRORLEVEL%
 )
-
-:: Fallback direct shutdown if Python is somehow missing
-echo [INFO] Performing fallback process termination...
-if exist ".run\frontend.pid" (
-    set /p FE_PID=<.run\frontend.pid
-    taskkill /PID !FE_PID! /T /F >nul 2>&1
-    del /f /q ".run\frontend.pid" >nul 2>&1
-    echo [STOP] Frontend stopped (PID: !FE_PID!).
-)
-if exist ".run\backend.pid" (
-    set /p BE_PID=<.run\backend.pid
-    taskkill /PID !BE_PID! /T /F >nul 2>&1
-    del /f /q ".run\backend.pid" >nul 2>&1
-    echo [STOP] Backend stopped (PID: !BE_PID!).
-)
-
-:done
-pause
+echo [ERROR] Python is required to safely read CRM process ownership records.
+exit /b 1

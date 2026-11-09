@@ -24,12 +24,14 @@ import { PricingSelector } from '../../../components/document/PricingSelector';
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const resolvedParams = use(params);
-  const { invoices, payments, settings, recordPayment, updateInvoice } = useCrm();
+  const { invoices, packages, payments, settings, recordPayment, updateInvoice } = useCrm();
 
   const decodedId = decodeURIComponent(resolvedParams.id).toLowerCase();
   const invoice = invoices.find(inv => inv.id.toLowerCase() === decodedId || inv.invoiceNumber?.toLowerCase() === decodedId);
   const [editingPricing, setEditingPricing] = useState(false);
   const [draftLines, setDraftLines] = useState(invoice?.lineItems || []);
+  const [selectedPackageId, setSelectedPackageId] = useState('');
+  const [packageSearchTerm, setPackageSearchTerm] = useState('');
   React.useEffect(() => {
     if (invoice) setDraftLines(invoice.lineItems);
   }, [invoice]);
@@ -56,6 +58,40 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       const price = tier === 'MIN' ? line.minPrice : tier === 'DEFAULT' ? line.defaultPrice : tier === 'MAX' ? line.maxPrice : (value ?? line.negotiatedUnitPrice);
       return { ...line, selectedTier: tier, negotiatedUnitPrice: price, isBelowMinWarning: line.minPrice > 0 && price < line.minPrice };
     }));
+  };
+
+  const addPackageToDraft = () => {
+    const pkg = packages.find(item => item.id === selectedPackageId);
+    if (!pkg) return;
+
+    const minPrice = pkg.minPrice ?? 0;
+    const selectedTier: 'DEFAULT' | 'MIN' | 'CUSTOM' = pkg.finalPrice > 0 ? 'DEFAULT' : minPrice > 0 ? 'MIN' : 'CUSTOM';
+    const unitPrice = pkg.finalPrice > 0 ? pkg.finalPrice : minPrice;
+    setDraftLines(lines => [...lines, {
+      id: `pkg-${Date.now()}`,
+      packageId: pkg.id,
+      serviceName: pkg.name,
+      category: 'Package',
+      description: pkg.description,
+      sacCode: '998311',
+      quantity: 1,
+      billingUnit: pkg.duration || 'Package',
+      minPrice,
+      defaultPrice: pkg.finalPrice,
+      maxPrice: pkg.standardPrice,
+      selectedTier,
+      negotiatedUnitPrice: unitPrice,
+      isBelowMinWarning: false,
+      itemDiscountType: 'fixed',
+      itemDiscountValue: 0,
+      itemDiscountAmount: 0,
+      lineSubtotal: unitPrice,
+      taxableAmount: unitPrice,
+      gstRate: pkg.gstRate,
+      taxAmount: Math.round(unitPrice * (pkg.gstRate / 100)),
+      lineTotal: Math.round(unitPrice * (1 + pkg.gstRate / 100)),
+    }]);
+    setSelectedPackageId('');
   };
 
   const savePricing = async () => {
@@ -228,6 +264,40 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             <div style={{ color: '#4B5563' }}>Status: <strong>{invoice.status}</strong></div>
           </div>
         </div>
+
+        {editingPricing && (
+          <div className="no-print" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '1rem' }}>
+            <input
+              type="search"
+              value={packageSearchTerm}
+              onChange={(event) => setPackageSearchTerm(event.target.value)}
+              placeholder="Search packages..."
+              style={{ flex: 1, padding: '0.45rem 0.6rem', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12.5px' }}
+            />
+            <select
+              value={selectedPackageId}
+              onChange={(event) => setSelectedPackageId(event.target.value)}
+              style={{ flex: 1, padding: '0.45rem 0.6rem', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12.5px' }}
+            >
+              <option value="">Add a package...</option>
+              {packages
+                .filter(pkg => pkg.name.toLowerCase().includes(packageSearchTerm.trim().toLowerCase()))
+                .map(pkg => (
+                  <option key={pkg.id} value={pkg.id}>
+                    {pkg.name} - {formatINR(pkg.finalPrice)}
+                  </option>
+                ))}
+            </select>
+            <button
+              type="button"
+              onClick={addPackageToDraft}
+              disabled={!selectedPackageId}
+              style={{ padding: '0.45rem 0.75rem', background: '#2563EB', color: '#FFFFFF', borderRadius: '4px', fontSize: '12px', fontWeight: 600, opacity: selectedPackageId ? 1 : 0.5 }}
+            >
+              Add Package
+            </button>
+          </div>
+        )}
 
         {/* Invoice Items Table */}
         <table className="invoice-items-table" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '12.5px', textAlign: 'left' }}>

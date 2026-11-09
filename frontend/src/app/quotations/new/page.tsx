@@ -58,6 +58,7 @@ import { Modal } from '../../../components/ui/Modal';
 
 import { LetterheadLayout } from '../../../components/document/LetterheadLayout';
 import { PricingSelector } from '../../../components/document/PricingSelector';
+import { ServiceAutocomplete } from '../../../components/document/ServiceAutocomplete';
 
 
 
@@ -65,7 +66,7 @@ export default function QuotationBuilderPage() {
 
   const router = useRouter();
 
-  const { clients, services, packages, settings, addQuotation, addClient } = useCrm();
+  const { clients, services, packages, settings, isLoading, addQuotation, addClient } = useCrm();
 
 
 
@@ -101,8 +102,6 @@ export default function QuotationBuilderPage() {
 
   // Stepper 3: Line Items (Selected Services & Packages)
 
-  const [selectedServiceToAdd, setSelectedServiceToAdd] = useState('');
-  const [serviceSearchTerm, setServiceSearchTerm] = useState('');
   const [selectedPackageToAdd, setSelectedPackageToAdd] = useState(packages[0]?.id || '');
 
   const [customItemName, setCustomItemName] = useState('');
@@ -189,16 +188,6 @@ export default function QuotationBuilderPage() {
     );
 
   }, [clients, clientSearchTerm]);
-
-
-  const filteredServices = useMemo(() => {
-    const query = serviceSearchTerm.trim().toLowerCase();
-    if (!query) return services;
-    return services.filter(service =>
-      service.serviceName.toLowerCase().includes(query) ||
-      service.category.toLowerCase().includes(query)
-    );
-  }, [services, serviceSearchTerm]);
 
 
   // Check if an exact match already exists
@@ -331,17 +320,15 @@ export default function QuotationBuilderPage() {
 
   // Handle adding service
 
-  const handleAddServiceItem = () => {
+  const handleAddServiceItem = (serviceId: string) => {
 
-    const srv = services.find(s => s.id === selectedServiceToAdd);
+    const srv = services.find(s => s.id === serviceId);
 
     if (!srv) {
-      alert('Please choose a service before adding it.');
       return;
     }
 
 
-    const isZeroRate = srv.defaultPrice === 0 && srv.minPrice === 0;
     const initialTier: PriceTier = srv.defaultPrice > 0 ? 'DEFAULT' : srv.minPrice > 0 ? 'MIN' : 'CUSTOM';
     const initialPrice = srv.defaultPrice > 0 ? srv.defaultPrice : srv.minPrice;
 
@@ -395,8 +382,6 @@ export default function QuotationBuilderPage() {
 
 
     setLineItems(prev => [...prev, newItem]);
-
-    setSelectedServiceToAdd('');
   };
 
 
@@ -411,6 +396,9 @@ export default function QuotationBuilderPage() {
 
 
     if (pkg.presentationMode === 'Consolidated' || pkg.items.length === 0) {
+      const minPrice = pkg.minPrice ?? 0;
+      const selectedTier: PriceTier = pkg.finalPrice > 0 ? 'DEFAULT' : minPrice > 0 ? 'MIN' : 'CUSTOM';
+      const unitPrice = pkg.finalPrice > 0 ? pkg.finalPrice : minPrice;
 
       const newItem: DocumentLineItem = {
 
@@ -429,15 +417,13 @@ export default function QuotationBuilderPage() {
 
         billingUnit: 'Turnkey',
 
-        minPrice: pkg.minPrice ?? 0,
-
+        minPrice,
         defaultPrice: pkg.finalPrice,
-
         maxPrice: pkg.standardPrice,
 
-        selectedTier: 'DEFAULT',
+        selectedTier,
 
-        negotiatedUnitPrice: pkg.finalPrice,
+        negotiatedUnitPrice: unitPrice,
 
         isBelowMinWarning: false,
 
@@ -447,15 +433,13 @@ export default function QuotationBuilderPage() {
 
         itemDiscountAmount: 0,
 
-        lineSubtotal: pkg.finalPrice,
-
-        taxableAmount: pkg.finalPrice,
+        lineSubtotal: unitPrice,
+        taxableAmount: unitPrice,
 
         gstRate: pkg.gstRate,
 
-        taxAmount: Math.round(pkg.finalPrice * (pkg.gstRate / 100)),
-
-        lineTotal: Math.round(pkg.finalPrice * (1 + pkg.gstRate / 100))
+        taxAmount: Math.round(unitPrice * (pkg.gstRate / 100)),
+        lineTotal: Math.round(unitPrice * (1 + pkg.gstRate / 100))
 
       };
 
@@ -470,6 +454,9 @@ export default function QuotationBuilderPage() {
         const share = packageWeight > 0 ? it.defaultUnitPrice / packageWeight : 1 / pkg.items.length;
         const lineBase = pkg.finalPrice * share;
         const lineMinimum = (pkg.minPrice ?? 0) * share;
+        const lineDefault = pkg.finalPrice * share;
+        const lineTier: PriceTier = lineDefault > 0 ? 'DEFAULT' : lineMinimum > 0 ? 'MIN' : 'CUSTOM';
+        const linePrice = lineDefault > 0 ? lineDefault : lineMinimum;
         return ({
 
         id: `li-pkg-${Date.now()}-${idx}`,
@@ -490,8 +477,8 @@ export default function QuotationBuilderPage() {
         minPrice: lineMinimum,
         defaultPrice: lineBase,
         maxPrice: pkg.standardPrice * share,
-        selectedTier: 'DEFAULT',
-        negotiatedUnitPrice: lineBase,
+        selectedTier: lineTier,
+        negotiatedUnitPrice: lineBase > 0 ? lineBase : linePrice,
 
         isBelowMinWarning: false,
 
@@ -501,13 +488,13 @@ export default function QuotationBuilderPage() {
 
         itemDiscountAmount: 0,
 
-        lineSubtotal: lineBase,
-        taxableAmount: lineBase,
+        lineSubtotal: lineBase > 0 ? lineBase : linePrice,
+        taxableAmount: lineBase > 0 ? lineBase : linePrice,
 
         gstRate: pkg.gstRate,
 
-        taxAmount: Math.round(lineBase * (pkg.gstRate / 100)),
-        lineTotal: Math.round(lineBase * (1 + pkg.gstRate / 100))
+        taxAmount: Math.round((lineBase > 0 ? lineBase : linePrice) * (pkg.gstRate / 100)),
+        lineTotal: Math.round((lineBase > 0 ? lineBase : linePrice) * (1 + pkg.gstRate / 100))
         });
       });
 
@@ -2258,30 +2245,11 @@ export default function QuotationBuilderPage() {
                 Pick from service catalogue
               </label>
 
-              <input
-                type="search"
-                placeholder="Search service or category..."
-                value={serviceSearchTerm}
-                onChange={(e) => setServiceSearchTerm(e.target.value)}
-                style={{ width: '100%', padding: '0.45rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '2px', fontSize: '13px' }}
+              <ServiceAutocomplete
+                services={services}
+                isLoading={isLoading}
+                onSelect={(service) => handleAddServiceItem(service.id)}
               />
-              <select 
-                value={selectedServiceToAdd}
-                onChange={(e) => setSelectedServiceToAdd(e.target.value)}
-                style={{ width: '100%', padding: '0.45rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '2px', fontSize: '13px' }}
-              >
-                <option value="">-- Choose a service --</option>
-                {filteredServices.map(s => {
-                  const isZeroRate = s.defaultPrice === 0 && s.minPrice === 0;
-                  return (
-                    <option key={s.id} value={s.id}>
-                      [{s.category}] {s.serviceName} — {isZeroRate ? 'Custom rate required' : `Default: ${formatINR(s.defaultPrice)}`}
-                    </option>
-                  );
-                })}
-              </select>
-              {services.length === 0 && <span style={{ fontSize: '12px', color: '#B45309' }}>Services are still loading or unavailable.</span>}
-              {services.length > 0 && filteredServices.length === 0 && <span style={{ fontSize: '12px', color: '#B45309' }}>No services match this search.</span>}
             </div>
 
 
@@ -2317,20 +2285,6 @@ export default function QuotationBuilderPage() {
 
 
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
-
-              <button 
-
-                type="button" 
-
-                onClick={handleAddServiceItem}
-
-                style={{ padding: '0.5rem 0.85rem', background: '#171717', color: '#FFFFFF', borderRadius: '4px', fontSize: '12.5px', fontWeight: 600 }}
-
-              >
-
-                + Add Service
-
-              </button>
 
               <button 
 

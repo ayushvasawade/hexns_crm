@@ -150,8 +150,15 @@ export function adaptPackage(raw: any): Package {
     presentationMode: raw.presentationMode || raw.presentation_mode || 'Itemized',
     status: raw.status || 'Active',
     items: (raw.items || []).map((it: any): PackageItem => ({
-      serviceId: it.serviceId || it.service_id || '',
-      serviceName: it.serviceName || it.service_name || '',
+      serviceId: String(
+        it.serviceId
+        ?? it.service_id
+        ?? it.service?.id
+        ?? it.service?.serviceId
+        ?? it.service?.service_id
+        ?? ''
+      ),
+      serviceName: it.serviceName || it.service_name || it.service?.serviceName || it.service?.service_name || '',
       quantity: toNumber(it.quantity, 1),
       unit: it.unit || '',
       defaultUnitPrice: toNumber(it.defaultUnitPrice ?? it.default_unit_price),

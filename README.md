@@ -87,15 +87,18 @@ Ensure the following runtimes are installed on your machine before the first lau
 ## 3. One-Click Operation Guide
 
 ### Starting the System (`start.bat` / `start.command`)
-- Simply double-click the startup script for your operating system.
+- Simply double-click the startup script for your operating system. The script changes to the repository directory first, so it also works when launched from another working directory or when the path contains spaces.
+- The shared launcher checks the actual dependency manifests. It installs backend packages only in `backend/.venv`, and uses `npm ci` when `frontend/package-lock.json` is valid. Hashes are stored in `.run/dependency-fingerprints.json`, so unchanged dependencies are not installed on every startup.
+- Required environment files are created from their examples only when missing. Existing files and environment variables are never overwritten, and placeholder database values stop startup with an actionable message.
+- Before services start, the launcher checks Alembic revision state and applies pending migrations with `alembic upgrade head`. It never resets, drops, or recreates the database.
 - The terminal displays a live progress dashboard checking prerequisites, installing any missing packages, starting the backend, starting the frontend, and verifying service health.
 - Once both services are confirmed healthy, your browser opens automatically to **[http://localhost:3000](http://localhost:3000)**.
 - If the application is already running, the startup script detects existing healthy instances, avoids starting duplicate processes, and displays the running application status without opening duplicate browser tabs.
 
 ### Stopping the System (`stop.bat` / `stop.command`)
 - Double-click the shutdown script for your operating system.
-- The shutdown script reads stored process IDs from `.run/`, gracefully terminates both the Next.js and FastAPI process trees (including any worker or child processes), verifies that ports `3000` and `8000` are clean, removes PID files, and displays a shutdown confirmation.
-- It safely ignores processes that were already stopped and will never terminate unrelated Python or Node applications.
+- The shutdown script reads ownership records from `.run/`, verifies the recorded process command before stopping its process tree, removes its PID file, and displays a shutdown confirmation.
+- It does not scan ports or terminate arbitrary listeners, so unrelated Python, Node.js, or other application processes are left alone.
 
 ---
 
@@ -180,9 +183,11 @@ Runtime process tracking:
 
 ## 7. Dependency Installation Behavior
 
-- **Fast & Idempotent**: Dependencies are checked quickly on startup. If `backend/.venv` and `frontend/node_modules` are already intact, installation is skipped to ensure the fastest possible startup (typically 1-3 seconds).
+- **Manifest-aware and idempotent**: Changes to backend dependency files (`requirements.txt`, `pyproject.toml`, `Pipfile`, or `Pipfile.lock`) and frontend manifests (`package.json` and the lockfile) invalidate the local fingerprint and trigger installation. If the manifests and installed directories are unchanged, installation is skipped.
 - **Virtual Environment Isolation**: Python dependencies are always installed in `backend/.venv`. Global packages are never modified.
 - **Clean Lockfile Usage**: When installing frontend dependencies, `npm ci` is preferred whenever `package-lock.json` is present to maintain identical package versions without modifying the lockfile.
+- **Configurable ordinary changes**: Set `HEXNS_BACKEND_HOST`, `HEXNS_BACKEND_PORT`, `HEXNS_FRONTEND_HOST`, or `HEXNS_FRONTEND_PORT` before startup to use different local bindings. Set `HEXNS_FRONTEND_SCRIPT` to select another script already defined in `frontend/package.json`.
+- **Migration safety**: Migration inspection and upgrade errors stop startup. The launcher only invokes the existing Alembic configuration and never performs destructive database commands.
 
 ---
 

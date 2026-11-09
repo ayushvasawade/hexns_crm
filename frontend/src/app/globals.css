@@ -272,7 +272,12 @@ input, select, textarea {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 10mm 12mm 12mm 12mm;
+    /*
+     * Keep the page box free of browser margin content. Browser-controlled
+     * headers and footers still require "Headers and footers" to be disabled
+     * in the native print dialog.
+     */
+    margin: 0;
   }
 
   *, *::before, *::after {
@@ -330,12 +335,27 @@ input, select, textarea {
   .document-view-page,
   .quotation-builder-page,
   .step-container,
-  .a4-document-container,
   .a4-print-document {
     display: block !important;
     padding: 0 !important;
     margin: 0 !important;
     gap: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    height: auto !important;
+    position: static !important;
+    break-before: auto !important;
+    page-break-before: auto !important;
+  }
+
+  .a4-document-container {
+    display: block !important;
+    padding: 10mm 12mm 12mm !important;
+    margin: 0 !important;
     border: none !important;
     border-radius: 0 !important;
     box-shadow: none !important;

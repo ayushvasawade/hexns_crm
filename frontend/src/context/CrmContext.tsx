@@ -186,7 +186,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (path === '/quotations/new') return ['clients', 'services', 'packages', 'settings'];
     if (path === '/quotations') return ['clients', 'quotations'];
     if (path.startsWith('/quotations/')) return ['clients', 'quotations', 'settings'];
-    if (path === '/invoices/new') return ['clients', 'services', 'quotations', 'settings'];
+    if (path === '/invoices/new') return ['clients', 'services', 'packages', 'quotations', 'settings'];
     if (path === '/invoices') return ['clients', 'quotations', 'invoices'];
     if (path.startsWith('/invoices/')) return ['clients', 'quotations', 'invoices', 'payments', 'settings'];
     if (path === '/payments') return ['payments', 'invoices', 'clients'];

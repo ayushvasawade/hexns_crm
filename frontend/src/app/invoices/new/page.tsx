@@ -10,7 +10,6 @@ import {
   Save, 
   Check, 
   FileText,
-  Search,
   Building,
   CheckCircle2,
   X
@@ -19,15 +18,15 @@ import { useCrm } from '../../../context/CrmContext';
 import { DocumentLineItem } from '../../../types/crm';
 import { formatINR, formatDate, numberToWordsINR } from '../../../lib/formatters';
 import { PricingSelector } from '../../../components/document/PricingSelector';
+import { ServiceAutocomplete } from '../../../components/document/ServiceAutocomplete';
 
 export default function NewInvoicePage() {
   const router = useRouter();
-  const { clients, services, packages, quotations, settings, addInvoice, addClient } = useCrm();
+  const { clients, services, packages, quotations, settings, isLoading, addInvoice, addClient } = useCrm();
 
   const [selectedClientId, setSelectedClientId] = useState(clients[0]?.id || '');
   const [clientSearchTerm, setClientSearchTerm] = useState('');
   const [selectedQuoteId, setSelectedQuoteId] = useState('');
-  const [serviceSearchTerm, setServiceSearchTerm] = useState('');
   const [selectedPackageId, setSelectedPackageId] = useState('');
 
   // Discount state
@@ -84,16 +83,74 @@ export default function NewInvoicePage() {
   // Line items
   const [lineItems, setLineItems] = useState<DocumentLineItem[]>([]);
 
-  const filteredServices = services.filter(service => {
-    const query = serviceSearchTerm.trim().toLowerCase();
-    return !query ||
-      service.serviceName.toLowerCase().includes(query) ||
-      service.category.toLowerCase().includes(query);
-  });
-  const filteredPackages = packages.filter(pkg => {
-    const query = serviceSearchTerm.trim().toLowerCase();
-    return !query || pkg.name.toLowerCase().includes(query) || 'package'.includes(query);
-  });
+  const createServiceLineItem = (
+    service: typeof services[number],
+    quantity = 1,
+    negotiatedUnitPrice = service.defaultPrice > 0 ? service.defaultPrice : service.minPrice
+  ): DocumentLineItem => {
+    const lineSubtotal = quantity * negotiatedUnitPrice;
+    const tax = Math.round(lineSubtotal * (service.gstRate / 100));
+    const selectedTier = service.defaultPrice > 0 ? 'DEFAULT' : service.minPrice > 0 ? 'MIN' : 'CUSTOM';
+
+    return {
+      id: `ili-${Date.now()}-${service.id}`,
+      serviceId: String(service.id),
+      serviceName: service.serviceName,
+      category: service.category,
+      description: service.description,
+      sacCode: service.sacCode,
+      quantity,
+      billingUnit: service.billingUnit,
+      minPrice: service.minPrice,
+      defaultPrice: service.defaultPrice,
+      maxPrice: service.maxPrice,
+      selectedTier,
+      negotiatedUnitPrice,
+      isBelowMinWarning: false,
+      itemDiscountType: 'fixed',
+      itemDiscountValue: 0,
+      itemDiscountAmount: 0,
+      lineSubtotal,
+      taxableAmount: lineSubtotal,
+      gstRate: service.gstRate,
+      taxAmount: tax,
+      lineTotal: lineSubtotal + tax,
+    };
+  };
+
+  const createPackageLineItem = (pkg: typeof packages[number]): DocumentLineItem => {
+    const minPrice = pkg.minPrice ?? 0;
+    const selectedTier: 'DEFAULT' | 'MIN' | 'CUSTOM' =
+      pkg.finalPrice > 0 ? 'DEFAULT' : minPrice > 0 ? 'MIN' : 'CUSTOM';
+    const negotiatedUnitPrice = pkg.finalPrice > 0 ? pkg.finalPrice : minPrice;
+    const lineSubtotal = negotiatedUnitPrice;
+    const taxAmount = Math.round(lineSubtotal * (pkg.gstRate / 100));
+
+    return {
+      id: `pkg-${Date.now()}-${pkg.id}`,
+      packageId: pkg.id,
+      serviceName: pkg.name,
+      category: 'Package',
+      description: pkg.description,
+      sacCode: '998311',
+      quantity: 1,
+      billingUnit: pkg.duration || 'Package',
+      minPrice,
+      defaultPrice: pkg.finalPrice,
+      maxPrice: pkg.standardPrice,
+      selectedTier,
+      negotiatedUnitPrice,
+      isBelowMinWarning: false,
+      itemDiscountType: 'fixed',
+      itemDiscountValue: 0,
+      itemDiscountAmount: 0,
+      lineSubtotal,
+      taxableAmount: lineSubtotal,
+      gstRate: pkg.gstRate,
+      taxAmount,
+      lineTotal: lineSubtotal + taxAmount,
+    };
+  };
 
   // Handle Quotation Import
   const handleImportQuote = (quoteId: string) => {
@@ -142,35 +199,23 @@ export default function NewInvoicePage() {
     setLineItems(prev => [...prev, newItem]);
   };
 
+  const handleAddService = (serviceId: string) => {
+    const service = services.find(item => String(item.id) === String(serviceId));
+    if (!service) return;
+    setLineItems(prev => [...prev, createServiceLineItem(service)]);
+  };
+
   const handleAddPackage = () => {
     const pkg = packages.find(item => item.id === selectedPackageId);
     if (!pkg) return;
-    const unitPrice = pkg.finalPrice;
-    const tax = Math.round(unitPrice * (pkg.gstRate / 100));
-    setLineItems(prev => [...prev, {
-      id: `pkg-${Date.now()}`,
-      serviceName: pkg.name,
-      category: 'Package',
-      packageId: pkg.id,
-      description: pkg.description,
-      sacCode: '998311',
-      quantity: 1,
-      billingUnit: pkg.duration || 'Package',
-      minPrice: pkg.minPrice ?? 0,
-      defaultPrice: pkg.finalPrice,
-      maxPrice: pkg.standardPrice,
-      selectedTier: 'DEFAULT',
-      negotiatedUnitPrice: unitPrice,
-      isBelowMinWarning: false,
-      itemDiscountType: 'fixed',
-      itemDiscountValue: 0,
-      itemDiscountAmount: 0,
-      lineSubtotal: unitPrice,
-      taxableAmount: unitPrice,
-      gstRate: pkg.gstRate,
-      taxAmount: tax,
-      lineTotal: unitPrice + tax,
-    }]);
+
+    if (lineItems.some(item => item.packageId === pkg.id)) {
+      alert(`Package "${pkg.name}" has already been added.`);
+      setSelectedPackageId('');
+      return;
+    }
+
+    setLineItems(prev => [...prev, createPackageLineItem(pkg)]);
     setSelectedPackageId('');
   };
 
@@ -178,7 +223,6 @@ export default function NewInvoicePage() {
     const service = services.find(item => item.id === serviceId);
     if (!service) return;
 
-    const isZeroRate = service.defaultPrice === 0 && service.minPrice === 0;
     const selectedTier: 'DEFAULT' | 'MIN' | 'CUSTOM' = service.defaultPrice > 0 ? 'DEFAULT' : service.minPrice > 0 ? 'MIN' : 'CUSTOM';
     const unitPrice = service.defaultPrice > 0 ? service.defaultPrice : service.minPrice;
 
@@ -539,13 +583,13 @@ export default function NewInvoicePage() {
               + Add Line Item
             </button>
           </div>
-          <input
-            type="search"
-            placeholder="Search services by name or category..."
-            value={serviceSearchTerm}
-            onChange={(e) => setServiceSearchTerm(e.target.value)}
-            style={{ width: '100%', padding: '0.45rem 0.6rem', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12.5px', marginBottom: '0.5rem' }}
-          />
+          <div style={{ marginBottom: '0.5rem' }}>
+            <ServiceAutocomplete
+              services={services}
+              isLoading={isLoading}
+              onSelect={(service) => handleAddService(service.id)}
+            />
+          </div>
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
             <select
               value={selectedPackageId}
@@ -553,7 +597,7 @@ export default function NewInvoicePage() {
               style={{ flex: 1, padding: '0.45rem 0.6rem', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12.5px' }}
             >
               <option value="">Add a package or retainer…</option>
-              {filteredPackages.map(pkg => (
+              {packages.map(pkg => (
                 <option key={pkg.id} value={pkg.id}>[Package] {pkg.name} — {formatINR(pkg.finalPrice)}</option>
               ))}
             </select>
@@ -566,7 +610,7 @@ export default function NewInvoicePage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
             <thead>
               <tr style={{ background: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
-                <th style={{ padding: '8px', textAlign: 'left' }}>Service Deliverable</th>
+                <th style={{ padding: '8px', textAlign: 'left' }}>Service / Package</th>
                 <th style={{ padding: '8px', textAlign: 'left' }}>SAC</th>
                 <th style={{ padding: '8px', textAlign: 'center' }}>Qty</th>
                 <th style={{ padding: '8px', textAlign: 'right' }}>Rate (₹)</th>
@@ -578,21 +622,30 @@ export default function NewInvoicePage() {
               {lineItems.map((item, idx) => (
                 <tr key={item.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
                   <td style={{ padding: '8px' }}>
-                    <select
-                      value={item.serviceId || ''}
-                      onChange={(e) => handleServiceChange(idx, e.target.value)}
-                      style={{ width: '100%', padding: '4px 6px', border: '1px solid #E5E7EB', borderRadius: '4px', fontWeight: 600 }}
-                    >
-                      <option value="">-- Choose a service --</option>
-                      {filteredServices.map(service => {
-                        const isZeroRate = service.defaultPrice === 0 && service.minPrice === 0;
-                        return (
-                          <option key={service.id} value={service.id}>
-                            [{service.category}] {service.serviceName} {isZeroRate ? '— Custom rate required' : `— ${formatINR(service.defaultPrice)}`}
-                          </option>
-                        );
-                      })}
-                    </select>
+                    {item.packageId ? (
+                      <>
+                        <div style={{ fontWeight: 700, color: '#171717' }}>{item.serviceName}</div>
+                        {item.description && (
+                          <div style={{ marginTop: '3px', fontSize: '11.5px', color: '#737373' }}>{item.description}</div>
+                        )}
+                      </>
+                    ) : (
+                      <select
+                        value={item.serviceId || ''}
+                        onChange={(e) => handleServiceChange(idx, e.target.value)}
+                        style={{ width: '100%', padding: '4px 6px', border: '1px solid #E5E7EB', borderRadius: '4px', fontWeight: 600 }}
+                      >
+                        <option value="">-- Choose a service --</option>
+                        {services.map(service => {
+                          const isZeroRate = service.defaultPrice === 0 && service.minPrice === 0;
+                          return (
+                            <option key={service.id} value={service.id}>
+                              [{service.category}] {service.serviceName} {isZeroRate ? '— Custom rate required' : `— ${formatINR(service.defaultPrice)}`}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    )}
                     {item.billingUnit && <div style={{ fontSize: '11px', color: '#737373', marginTop: '3px' }}>{item.billingUnit}</div>}
                     {item.defaultPrice === 0 && item.minPrice === 0 && (
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', marginTop: '3px', padding: '1px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, backgroundColor: '#FEF3C7', color: '#B45309', border: '1px solid #FCD34D' }}>

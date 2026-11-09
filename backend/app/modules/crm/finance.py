@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.crm import (
-    Client, Invoice, InvoiceLineItem, Package, Quotation, QuotationLineItem, Service,
+    Client, Invoice, InvoiceLineItem, Package, PackageItem, Quotation, QuotationLineItem, Service,
 )
 from app.modules.crm.schemas import LineItemInput
 
@@ -43,7 +43,7 @@ def validate_line_price(
     negotiated_price: Decimal,
 ) -> None:
     if negotiated_price <= Decimal("0"):
-        raise HTTPException(status_code=422, detail=f"Service '{name}' requires manual rate entry greater than 0")
+        raise HTTPException(status_code=422, detail=f"'{name}' requires manual rate entry greater than 0")
     if selected_tier == "MIN" and min_price <= Decimal("0"):
         raise HTTPException(status_code=422, detail=f"'{name}' has no minimum rate")
     if selected_tier == "DEFAULT" and default_price <= Decimal("0"):
@@ -67,21 +67,32 @@ async def build_lines(
     taxable_before_document_discount = Decimal("0")
 
     for item in inputs:
+        if not item.service_id and not item.package_id and item.selected_tier != "CUSTOM":
+            raise HTTPException(status_code=422, detail="Catalogue line items must reference a service or package")
         service = await owned_service(db, owner_id, item.service_id) if item.service_id else None
         package = None
         if item.package_id:
             package = await db.scalar(select(Package).where(Package.id == item.package_id, Package.owner_id == owner_id))
             if package is None:
                 raise HTTPException(status_code=404, detail="Package not found")
+            if item.service_id:
+                package_service = await db.scalar(
+                    select(PackageItem).where(
+                        PackageItem.package_id == package.id,
+                        PackageItem.service_id == item.service_id,
+                    )
+                )
+                if package_service is None:
+                    raise HTTPException(status_code=422, detail="Service is not part of the selected package")
         if service:
             service_name = service.service_name
             category = service.category
             description = service.description
             billing_unit = service.billing_unit
             sac_code = service.sac_code
-            min_price = service.min_price
-            default_price = service.default_price
-            max_price = service.max_price
+            min_price = item.min_price if package else service.min_price
+            default_price = item.default_price if package else service.default_price
+            max_price = item.max_price if package else service.max_price
             gst_rate = service.gst_rate
         elif package:
             service_name = package.name
