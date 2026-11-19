@@ -14,6 +14,7 @@ router = APIRouter()
 
 
 @router.post("/login", response_model=TokenResponse)
+@router.post("/login/", response_model=TokenResponse, include_in_schema=False)
 async def login(
     credentials: LoginRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -31,6 +32,22 @@ async def login(
     )
 
 
+@router.get("/login", include_in_schema=False)
+@router.get("/login/", include_in_schema=False)
+async def login_get_not_allowed() -> None:
+    """Explicit handler returning clear diagnostics if a client or redirect sends a GET request to /login."""
+    raise HTTPException(
+        status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
+        detail=(
+            "Login requires an HTTP POST request with JSON payload (email and password). "
+            "If this error occurred in the web UI, ensure NEXT_PUBLIC_API_URL uses https:// "
+            "(not http://) so requests are not converted to GET by hosting redirects."
+        ),
+        headers={"Allow": "POST, OPTIONS"},
+    )
+
+
 @router.get("/me", response_model=UserResponse)
+@router.get("/me/", response_model=UserResponse, include_in_schema=False)
 async def current_user(user: CurrentUser) -> User:
     return user

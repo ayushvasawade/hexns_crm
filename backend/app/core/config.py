@@ -23,7 +23,9 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ]
-    CORS_ORIGIN_REGEX: Union[str, None] = None
+    CORS_ORIGIN_REGEX: Union[str, None] = (
+        r"^https?://.*(\.vercel\.app|\.onrender\.com|\.railway\.app|\.hf\.space|localhost|127\.0\.0\.1)(:\d+)?$"
+    )
     DATABASE_URL: str = Field(
         default="postgresql+asyncpg://USER:PASSWORD@ep-example.neon.tech/hexns_crm?ssl=require",
         description="Async PostgreSQL connection string",

@@ -17,7 +17,42 @@ export class ApiError extends Error {
   }
 }
 
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/v1').replace(/\/+$/, '');
+/**
+ * Resolves the backend API base URL with safeguards for production deployments:
+ * 1. Upgrades http:// to https:// when running in the browser on an HTTPS domain to prevent 301 redirects converting POST into GET.
+ * 2. Normalizes missing /api/v1 suffixes when developers provide bare hostnames (e.g. https://backend.onrender.com).
+ * 3. Gracefully defaults to /api/v1 (relative) in browser production when NEXT_PUBLIC_API_URL is unset, which works via Next.js rewrites.
+ */
+export function getApiBaseUrl(): string {
+  let raw = (process.env.NEXT_PUBLIC_API_URL || '').trim();
+
+  if (!raw) {
+    if (typeof window !== 'undefined') {
+      const isLocalhost =
+        window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1';
+      return isLocalhost ? 'http://127.0.0.1:8000/api/v1' : '/api/v1';
+    }
+    return 'http://127.0.0.1:8000/api/v1';
+  }
+
+  // Strip trailing slashes
+  raw = raw.replace(/\/+$/, '');
+
+  // Auto-upgrade http:// to https:// if running under HTTPS in browser
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:' && raw.startsWith('http://')) {
+    raw = raw.replace(/^http:\/\//i, 'https://');
+  }
+
+  // If the user provided a domain without /api/v1 (e.g. https://hexns-crm-api.onrender.com)
+  if (!raw.endsWith('/api/v1') && !raw.endsWith('/api')) {
+    raw = `${raw}/api/v1`;
+  } else if (raw.endsWith('/api')) {
+    raw = `${raw}/v1`;
+  }
+
+  return raw;
+}
 
 const TOKEN_KEY = 'hexns_access_token';
 
@@ -63,7 +98,8 @@ export async function fetchApi<T>(endpoint: string, options: FetchOptions = {}):
   const { params, skipAuth = false, timeoutMs = 60000, signal, ...fetchOptions } = options;
   const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
-  let url = `${API_BASE_URL}${path}`;
+  const baseUrl = getApiBaseUrl();
+  let url = `${baseUrl}${path}`;
   if (params) {
     const searchParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {

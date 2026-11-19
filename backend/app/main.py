@@ -47,6 +47,11 @@ def create_application() -> FastAPI:
     # Mount API routers
     app.include_router(api_router)
 
+    # Auth fallback aliases (in case frontend API base URL omits /api/v1)
+    from app.modules.auth.router import router as auth_router
+    app.include_router(auth_router, prefix="/auth", tags=["Auth-Alias"], include_in_schema=False)
+    app.include_router(auth_router, prefix="/api/auth", tags=["Auth-Alias"], include_in_schema=False)
+
     # Root welcome & health aliases
     @app.get("/", tags=["Root"])
     async def root() -> dict:
