@@ -48,9 +48,8 @@ demo = gr.Interface(
     description="FastAPI Backend connected to Neon PostgreSQL. All REST API endpoints are active at /api/v1/*.",
 )
 
-# 1. Launch Gradio server on port 7860 (or env PORT) with SSR disabled
-# ssr_mode=False is critical: it prevents Gradio from spawning a SvelteKit/Node proxy
-# that intercepts and returns 405 Method Not Allowed on API POST requests.
+# 1. Launch Gradio server on port 7860 with SSR disabled
+# ssr_mode=False prevents Gradio from spawning the Node/SvelteKit proxy that caused the 405 error
 server_port = int(os.environ.get("PORT", 7860))
 demo.launch(
     server_name="0.0.0.0",
@@ -60,11 +59,7 @@ demo.launch(
     ssr_mode=False,
 )
 
-# 2. Mount FastAPI application directly onto the live running Gradio ASGI App
-# Mounting at "" and explicit subpaths guarantees all API and auth requests reach FastAPI
-demo.app.mount("/api/v1", fastapi_app)
-demo.app.mount("/auth", fastapi_app)
-demo.app.mount("/api", fastapi_app)
+# 2. Mount FastAPI application at root so /api/v1/* routes are preserved cleanly
 demo.app.mount("", fastapi_app)
 
 print(f"HEXNS CRM API successfully mounted and running on port {server_port} (ssr_mode=False).")
