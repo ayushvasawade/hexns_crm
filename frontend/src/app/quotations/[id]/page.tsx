@@ -19,10 +19,13 @@ import { PricingSelector } from '../../../components/document/PricingSelector';
 export default function QuotationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const resolvedParams = use(params);
-  const { quotations, settings, updateQuotation, updateQuotationStatus, convertQuotationToInvoice } = useCrm();
+  const { quotations, clients, settings, updateQuotation, updateQuotationStatus, convertQuotationToInvoice } = useCrm();
 
   const decodedId = decodeURIComponent(resolvedParams.id).toLowerCase();
   const quote = quotations.find(q => q.id.toLowerCase() === decodedId || q.quotationNumber?.toLowerCase() === decodedId);
+  const client = clients.find(c => c.id === quote?.clientId);
+  const rawGstin = (client?.gstin || quote?.clientGstin || '').trim();
+  const clientGstin = rawGstin.toLowerCase() === 'unregistered' ? '' : rawGstin;
   const [editingPricing, setEditingPricing] = useState(false);
   const [draftLines, setDraftLines] = useState(quote?.lineItems || []);
   useEffect(() => {
@@ -84,7 +87,7 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button 
             type="button"
-            onClick={() => generateQuotationPDF(quote, settings)}
+            onClick={() => generateQuotationPDF(quote, settings, client)}
             style={{
               padding: '0.45rem 0.85rem',
               border: '1px solid #E5E7EB',
@@ -220,8 +223,11 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
             <div style={{ fontSize: '15px', fontWeight: 700, color: '#171717', marginTop: '2px' }}>
               {quote.clientName}
             </div>
-            <div style={{ color: '#4B5563' }}>Place of Supply: <strong>{quote.placeOfSupply}</strong></div>
-            <div style={{ color: '#4B5563' }}>Tax Type: {quote.isInterState ? 'Inter-State (IGST)' : 'Intra-State (CGST+SGST)'}</div>
+            {clientGstin ? (
+              <div style={{ color: '#4B5563', marginTop: '4px' }}>
+                <strong>GSTIN:</strong> {clientGstin}
+              </div>
+            ) : null}
           </div>
           <div>
             <span style={{ fontSize: '11px', fontWeight: 700, color: '#737373', textTransform: 'uppercase' }}>Campaign & Terms:</span>
@@ -317,28 +323,6 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
             <span style={{ fontSize: '10.5px', color: '#737373', textAlign: 'right', marginTop: '2px' }}>
               {numberToWordsINR(quote.grandTotal)}
             </span>
-          </div>
-        </div>
-
-        {/* Bank & Signatures */}
-        <div className="print-avoid-break" style={{
-          borderTop: '1px solid #E5E7EB',
-          paddingTop: '1rem',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-end',
-          fontSize: '12px'
-        }}>
-          <div>
-            <strong>Bank Settlement Account:</strong><br />
-            Bank: {settings.bank.bankName} | A/C: {settings.bank.accountNumber}<br />
-            IFSC: {settings.bank.ifsc} | UPI: {settings.bank.upiVpa}
-          </div>
-
-          <div style={{ textAlign: 'center', minWidth: '160px' }}>
-            <div style={{ height: '35px', borderBottom: '1px dashed #737373', marginBottom: '4px' }} />
-            <span>Authorized Signatory</span><br />
-            <strong style={{ fontSize: '11px' }}>{settings.legalEntityName}</strong>
           </div>
         </div>
       </LetterheadLayout>

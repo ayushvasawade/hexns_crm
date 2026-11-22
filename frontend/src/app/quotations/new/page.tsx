@@ -3263,7 +3263,9 @@ export default function QuotationBuilderPage() {
 
                 <div style={{ color: '#4B5563' }}>{selectedClient?.registeredAddress || 'Registered Office'}, {selectedClient?.city || 'Mumbai'}</div>
 
-                <div style={{ color: '#4B5563' }}>GSTIN: <strong>{selectedClient?.gstin || 'Unregistered'}</strong></div>
+                {selectedClient?.gstin && selectedClient.gstin.toLowerCase() !== 'unregistered' ? (
+                  <div style={{ color: '#4B5563' }}>GSTIN: <strong>{selectedClient.gstin}</strong></div>
+                ) : null}
 
                 <div style={{ color: '#4B5563' }}>Attn: {selectedClient?.primaryContactPerson || 'Primary Contact'} ({selectedClient?.mobile || '+91 98000 00000'})</div>
 
@@ -3275,9 +3277,7 @@ export default function QuotationBuilderPage() {
 
                 <div style={{ fontSize: '14px', fontWeight: 700, color: '#171717', marginTop: '2px' }}>{projectTitle}</div>
 
-                <div style={{ color: '#4B5563', marginTop: '4px' }}>Place of Supply: <strong>{selectedClient?.placeOfSupply || 'Maharashtra (27)'}</strong></div>
-
-                <div style={{ color: '#4B5563' }}>Sales Lead: {salesExecutive}</div>
+                <div style={{ color: '#4B5563', marginTop: '4px' }}>Sales Lead: {salesExecutive}</div>
 
                 <div style={{ color: '#4B5563' }}>Payment Terms: {paymentTerms}</div>
 
@@ -3431,52 +3431,6 @@ export default function QuotationBuilderPage() {
                   <span style={{ fontWeight: 800, fontSize: '16px' }}>{formatINR(grandTotal)}</span>
 
                 </div>
-
-              </div>
-
-            </div>
-
-
-
-            {/* Bank & Signatures */}
-
-            <div className="print-avoid-break" style={{
-
-              borderTop: '1px solid #E5E7EB',
-
-              paddingTop: '1rem',
-
-              display: 'flex',
-
-              justifyContent: 'space-between',
-
-              alignItems: 'flex-end',
-
-              fontSize: '12px'
-
-            }}>
-
-              <div>
-
-                <strong>Bank Settlement Account:</strong><br />
-
-                A/C Holder: {settings.bank.accountHolder}<br />
-
-                Bank: {settings.bank.bankName} | A/C: {settings.bank.accountNumber}<br />
-
-                IFSC: {settings.bank.ifsc} | UPI: {settings.bank.upiVpa}
-
-              </div>
-
-
-
-              <div style={{ textAlign: 'center', minWidth: '160px' }}>
-
-                <div style={{ height: '40px', borderBottom: '1px dashed #737373', marginBottom: '4px' }} />
-
-                <span>Authorized Signatory</span><br />
-
-                <strong style={{ fontSize: '11px' }}>{settings.legalEntityName}</strong>
 
               </div>
 

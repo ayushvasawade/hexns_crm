@@ -41,6 +41,66 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [payMode, setPayMode] = useState<any>('NEFT / RTGS / IMPS');
   const [payRef, setPayRef] = useState('');
 
+  // Edit Bank Details State
+  const [showEditBankModal, setShowEditBankModal] = useState(false);
+  const [editBankName, setEditBankName] = useState('');
+  const [editAccountHolder, setEditAccountHolder] = useState('');
+  const [editAccountNumber, setEditAccountNumber] = useState('');
+  const [editIfsc, setEditIfsc] = useState('');
+  const [editUpiVpa, setEditUpiVpa] = useState('');
+  const [isSavingBank, setIsSavingBank] = useState(false);
+
+  const openEditBankModal = () => {
+    const b = invoice?.bankDetails || {};
+    setEditBankName(b.bankName || '');
+    setEditAccountHolder(b.accountHolder || '');
+    setEditAccountNumber(b.accountNumber || '');
+    setEditIfsc(b.ifsc || '');
+    setEditUpiVpa(b.upiVpa || (b as any).upiId || '');
+    setShowEditBankModal(true);
+  };
+
+  const handleUseSavedCompanyBank = () => {
+    if (settings.bank) {
+      setEditBankName(settings.bank.bankName || '');
+      setEditAccountHolder(settings.bank.accountHolder || '');
+      setEditAccountNumber(settings.bank.accountNumber || '');
+      setEditIfsc(settings.bank.ifsc || '');
+      setEditUpiVpa(settings.bank.upiVpa || '');
+    }
+  };
+
+  const handleClearEditBank = () => {
+    setEditBankName('');
+    setEditAccountHolder('');
+    setEditAccountNumber('');
+    setEditIfsc('');
+    setEditUpiVpa('');
+  };
+
+  const handleSaveBankDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!invoice) return;
+    setIsSavingBank(true);
+    try {
+      await updateInvoice(invoice.id, {
+        bankDetails: {
+          bankName: editBankName.trim(),
+          accountHolder: editAccountHolder.trim(),
+          accountNumber: editAccountNumber.trim(),
+          ifsc: editIfsc.trim(),
+          branch: '',
+          upiVpa: editUpiVpa.trim(),
+        }
+      });
+      setShowEditBankModal(false);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to update bank details');
+    } finally {
+      setIsSavingBank(false);
+    }
+  };
+
   if (!invoice) {
     return (
       <div style={{ padding: '3rem', textAlign: 'center' }}>
@@ -191,6 +251,26 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           >
             <Printer size={14} />
             <span>Print Tax Invoice</span>
+          </button>
+
+          <button 
+            type="button"
+            onClick={openEditBankModal}
+            style={{
+              padding: '0.45rem 0.85rem',
+              border: '1px solid #E5E7EB',
+              borderRadius: '6px',
+              fontSize: '12.5px',
+              fontWeight: 600,
+              backgroundColor: '#FFFFFF',
+              color: '#171717',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            <span>Edit Bank Details</span>
           </button>
 
           {invoice.balanceDue > 0 && (
@@ -430,29 +510,83 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           </div>
         )}
 
-        {/* Bank Settlement & Signature */}
-        <div className="print-avoid-break" style={{
-          borderTop: '1px solid #E5E7EB',
-          paddingTop: '1rem',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-end',
-          fontSize: '12px'
-        }}>
-          <div>
-            <strong>Electronic Bank Settlement Details:</strong><br />
-            Bank: {settings.bank.bankName}<br />
-            Account Name: {settings.bank.accountHolder}<br />
-            Current A/C No: {settings.bank.accountNumber}<br />
-            IFSC Code: {settings.bank.ifsc} | UPI: {settings.bank.upiVpa}
-          </div>
+        {/* Bank Settlement Section (Optional, only fields with values; omit entirely if empty) */}
+        {(() => {
+          const rawBank = invoice.bankDetails || {};
+          const bName = rawBank.bankName?.trim() || '';
+          const bHolder = rawBank.accountHolder?.trim() || '';
+          const bNum = rawBank.accountNumber?.trim() || '';
+          const bIfsc = rawBank.ifsc?.trim() || '';
+          const bUpi = (rawBank.upiVpa || (rawBank as any).upiId)?.trim() || '';
+          const hasBank = Boolean(bName || bHolder || bNum || bIfsc || bUpi);
 
-          <div style={{ textAlign: 'center', minWidth: '160px' }}>
-            <div style={{ height: '35px', borderBottom: '1px dashed #737373', marginBottom: '4px' }} />
-            <span>Authorized Signatory</span><br />
-            <strong style={{ fontSize: '11px' }}>{settings.legalEntityName}</strong>
-          </div>
-        </div>
+          if (hasBank) {
+            return (
+              <div className="print-avoid-break" style={{
+                borderTop: '1px solid #E5E7EB',
+                paddingTop: '1rem',
+                fontSize: '12px',
+                color: '#4B5563',
+                lineHeight: '1.6'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <strong style={{ color: '#171717' }}>Electronic Bank Settlement Details:</strong>
+                    {bName && <div>Bank: {bName}</div>}
+                    {bHolder && <div>Account Name: {bHolder}</div>}
+                    {bNum && <div>Current A/C No: {bNum}</div>}
+                    {(bIfsc || bUpi) && (
+                      <div>
+                        {[bIfsc ? `IFSC Code: ${bIfsc}` : null, bUpi ? `UPI: ${bUpi}` : null].filter(Boolean).join(' | ')}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={openEditBankModal}
+                    className="no-print"
+                    style={{
+                      padding: '0.35rem 0.65rem',
+                      fontSize: '11.5px',
+                      fontWeight: 600,
+                      color: '#2563EB',
+                      border: '1px solid #BFDBFE',
+                      backgroundColor: '#EFF6FF',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Edit Bank Details
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div className="no-print" style={{ borderTop: '1px solid #E5E7EB', paddingTop: '0.75rem', marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '12px', color: '#737373', fontStyle: 'italic' }}>
+                No bank details included on this invoice.
+              </span>
+              <button
+                type="button"
+                onClick={openEditBankModal}
+                style={{
+                  padding: '0.35rem 0.65rem',
+                  fontSize: '11.5px',
+                  fontWeight: 600,
+                  color: '#2563EB',
+                  border: '1px solid #BFDBFE',
+                  backgroundColor: '#EFF6FF',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                + Add Bank Details
+              </button>
+            </div>
+          );
+        })()}
       </LetterheadLayout>
 
       {/* Record Payment Modal */}
@@ -524,6 +658,131 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
               style={{ padding: '0.5rem 1.25rem', background: '#15803D', color: '#FFFFFF', borderRadius: '4px', fontWeight: 600 }}
             >
               Confirm Settlement
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit Bank Settlement Details Modal */}
+      <Modal
+        isOpen={showEditBankModal}
+        onClose={() => setShowEditBankModal(false)}
+        title={`Bank Settlement Details for ${invoice.invoiceNumber}`}
+        subtitle="All fields are optional. Leave blank or use saved company bank details."
+      >
+        <form onSubmit={handleSaveBankDetails} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F9FAFB', padding: '0.75rem', borderRadius: '6px', border: '1px solid #E5E7EB' }}>
+            <span style={{ fontSize: '12px', color: '#4B5563' }}>
+              Autofill options:
+            </span>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                type="button"
+                onClick={handleUseSavedCompanyBank}
+                style={{
+                  padding: '0.35rem 0.65rem',
+                  fontSize: '11.5px',
+                  fontWeight: 600,
+                  color: '#2563EB',
+                  backgroundColor: '#EFF6FF',
+                  border: '1px solid #BFDBFE',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Use saved company bank details
+              </button>
+              {(editBankName || editAccountHolder || editAccountNumber || editIfsc || editUpiVpa) && (
+                <button
+                  type="button"
+                  onClick={handleClearEditBank}
+                  style={{
+                    padding: '0.35rem 0.65rem',
+                    fontSize: '11.5px',
+                    fontWeight: 600,
+                    color: '#DC2626',
+                    backgroundColor: '#FEF2F2',
+                    border: '1px solid #FECACA',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>Bank Name (Optional)</label>
+            <input 
+              type="text"
+              placeholder="e.g. HDFC Bank Ltd"
+              value={editBankName}
+              onChange={(e) => setEditBankName(e.target.value)}
+              style={{ width: '100%', padding: '0.5rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '4px' }}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>Account Holder Name (Optional)</label>
+            <input 
+              type="text"
+              placeholder="e.g. HEXNS Mediaworks LLP"
+              value={editAccountHolder}
+              onChange={(e) => setEditAccountHolder(e.target.value)}
+              style={{ width: '100%', padding: '0.5rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '4px' }}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>Account Number (Optional)</label>
+              <input 
+                type="text"
+                placeholder="e.g. 50200084920194"
+                value={editAccountNumber}
+                onChange={(e) => setEditAccountNumber(e.target.value)}
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '4px', fontFamily: 'monospace' }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>IFSC Code (Optional)</label>
+              <input 
+                type="text"
+                placeholder="e.g. HDFC0000084"
+                value={editIfsc}
+                onChange={(e) => setEditIfsc(e.target.value)}
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '4px', fontFamily: 'monospace' }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>UPI ID (Optional)</label>
+            <input 
+              type="text"
+              placeholder="e.g. hexnsmediaworks@hdfcbank"
+              value={editUpiVpa}
+              onChange={(e) => setEditUpiVpa(e.target.value)}
+              style={{ width: '100%', padding: '0.5rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '4px' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem', borderTop: '1px solid #E5E7EB', paddingTop: '1rem' }}>
+            <button 
+              type="button" 
+              onClick={() => setShowEditBankModal(false)}
+              style={{ padding: '0.5rem 1rem', border: '1px solid #E5E7EB', borderRadius: '4px', background: '#FFFFFF' }}
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit" 
+              disabled={isSavingBank}
+              style={{ padding: '0.5rem 1.25rem', background: '#171717', color: '#FFFFFF', borderRadius: '4px', fontWeight: 600 }}
+            >
+              {isSavingBank ? 'Saving...' : 'Save Bank Details'}
             </button>
           </div>
         </form>

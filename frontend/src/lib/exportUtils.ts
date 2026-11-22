@@ -2,7 +2,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
-import { Quotation, Invoice, CompanySettings } from '../types/crm';
+import { Quotation, Invoice, CompanySettings, Client } from '../types/crm';
 import { formatINRWithDecimals, formatDate, numberToWordsINR } from './formatters';
 import { PDF_FONT, registerPdfFonts } from './pdfFonts';
 
@@ -70,7 +70,7 @@ function drawLetterheadHeaderAndFooter(doc: jsPDF) {
   doc.text("Unauthorized use or disclosure is strictly prohibited.", pageWidth / 2, pageHeight - 9.5, { align: 'center' });
 }
 
-export function generateQuotationPDF(quotation: Quotation, _settings: CompanySettings) {
+export function generateQuotationPDF(quotation: Quotation, _settings: CompanySettings, client?: Client) {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -104,11 +104,14 @@ export function generateQuotationPDF(quotation: Quotation, _settings: CompanySet
   doc.setFont(PDF_FONT, 'normal');
   doc.text(`Date: ${formatDate(quotation.quotationDate)}`, 140, 41);
   doc.text(`Valid Until: ${formatDate(quotation.validUntil)}`, 140, 46);
-  doc.text(`Place of Supply: ${quotation.placeOfSupply}`, 140, 51);
 
-  // Client Details Box
+  // Client Details Box (Display GSTIN if present, omit if not; Place of Supply and Tax Type omitted)
+  const rawGstin = (client?.gstin || quotation.clientGstin || '').trim();
+  const clientGstin = rawGstin.toLowerCase() === 'unregistered' ? '' : rawGstin;
+  const boxHeight = clientGstin ? 27 : 24;
+
   doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
-  doc.roundedRect(14, 40, 110, 26, 2, 2, 'F');
+  doc.roundedRect(14, 40, 110, boxHeight, 2, 2, 'F');
   doc.setFont(PDF_FONT, 'bold');
   doc.setFontSize(9);
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -117,7 +120,14 @@ export function generateQuotationPDF(quotation: Quotation, _settings: CompanySet
   doc.setFont(PDF_FONT, 'normal');
   doc.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
   doc.text(`Project: ${quotation.projectTitle}`, 18, 56);
-  doc.text(`Lead Account Exec: ${quotation.salesExecutive}`, 18, 61);
+  if (clientGstin) {
+    doc.setFont(PDF_FONT, 'bold');
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text("GSTIN: ", 18, 62);
+    doc.setFont(PDF_FONT, 'normal');
+    doc.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
+    doc.text(clientGstin, 31, 62);
+  }
 
   // Table of Items
   const tableRows = quotation.lineItems.map((it, idx) => [
@@ -409,11 +419,25 @@ export function generateInvoicePDF(invoice: Invoice, settings: CompanySettings) 
   doc.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
   doc.text(`Amount in Words: ${numberToWordsINR(invoice.grandTotal)}`, 14, grandTotalY + 24);
 
-  // Bank Info
+  // Bank Info (Include only fields containing values; omit entire section if none)
+  const bank = invoice.bankDetails || {};
+  const bankItems: string[] = [];
+  if (bank.bankName?.trim()) bankItems.push(`Bank: ${bank.bankName.trim()}`);
+  if (bank.accountHolder?.trim()) bankItems.push(`A/C Holder: ${bank.accountHolder.trim()}`);
+  if (bank.accountNumber?.trim()) bankItems.push(`A/C: ${bank.accountNumber.trim()}`);
+  if (bank.ifsc?.trim()) bankItems.push(`IFSC: ${bank.ifsc.trim()}`);
+  const upi = (bank.upiVpa || (bank as any).upiId)?.trim();
+  if (upi) bankItems.push(`UPI: ${upi}`);
+
   doc.setFontSize(7.5);
   doc.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
-  doc.text(`Remit to: ${settings.bank.bankName} | A/C: ${settings.bank.accountNumber} | IFSC: ${settings.bank.ifsc} | UPI: ${settings.bank.upiVpa}`, 14, grandTotalY + 30);
-  doc.text(`${settings.invoiceStatutoryNote || 'Tax payable under reverse charge: No.'}`, 14, grandTotalY + 35);
+
+  if (bankItems.length > 0) {
+    doc.text(`Remit to: ${bankItems.join(' | ')}`, 14, grandTotalY + 30);
+    doc.text(`${settings.invoiceStatutoryNote || 'Tax payable under reverse charge: No.'}`, 14, grandTotalY + 35);
+  } else {
+    doc.text(`${settings.invoiceStatutoryNote || 'Tax payable under reverse charge: No.'}`, 14, grandTotalY + 30);
+  }
 
   doc.save(`${invoice.invoiceNumber.replace(/[^a-zA-Z0-9-]/g, '_')}.pdf`);
 }

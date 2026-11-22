@@ -146,6 +146,7 @@ export interface Quotation {
   revisionNumber: number;
   clientId: string;
   clientName: string;
+  clientGstin?: string;
   projectTitle: string;
   quotationDate: string;
   validUntil: string;
@@ -183,6 +184,7 @@ export interface Invoice {
   quotationNumber?: string;
   clientId: string;
   clientName: string;
+  clientGstin?: string;
   projectTitle: string;
   invoiceDate: string;
   dueDate: string;
@@ -282,12 +284,12 @@ export interface Expense {
 }
 
 export interface BankDetails {
-  bankName: string;
-  accountHolder: string;
-  accountNumber: string;
-  ifsc: string;
-  branch: string;
-  upiVpa: string;
+  bankName?: string;
+  accountHolder?: string;
+  accountNumber?: string;
+  ifsc?: string;
+  branch?: string;
+  upiVpa?: string;
 }
 
 export interface CompanySettings {

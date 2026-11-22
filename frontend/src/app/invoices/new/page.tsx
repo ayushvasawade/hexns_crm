@@ -40,6 +40,31 @@ export default function NewInvoicePage() {
   const [projectTitle, setProjectTitle] = useState('Brand Retainer & Content Production');
   const [notes, setNotes] = useState('Payment due within 15 days of invoice issue.');
 
+  // Bank details state (optional, blank by default)
+  const [bankName, setBankName] = useState('');
+  const [accountHolder, setAccountHolder] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
+  const [ifsc, setIfsc] = useState('');
+  const [upiVpa, setUpiVpa] = useState('');
+
+  const handleUseSavedBank = () => {
+    if (settings.bank) {
+      setBankName(settings.bank.bankName || '');
+      setAccountHolder(settings.bank.accountHolder || '');
+      setAccountNumber(settings.bank.accountNumber || '');
+      setIfsc(settings.bank.ifsc || '');
+      setUpiVpa(settings.bank.upiVpa || '');
+    }
+  };
+
+  const handleClearBank = () => {
+    setBankName('');
+    setAccountHolder('');
+    setAccountNumber('');
+    setIfsc('');
+    setUpiVpa('');
+  };
+
   const client = clients.find(c => c.id === selectedClientId) || null;
   const isInterState = client ? client.stateCode !== '27' : false;
 
@@ -408,7 +433,14 @@ export default function NewInvoicePage() {
         balanceDue: grandTotal,
         status: 'Sent',
         notes,
-        bankDetails: settings.bank
+        bankDetails: {
+          bankName: bankName.trim(),
+          accountHolder: accountHolder.trim(),
+          accountNumber: accountNumber.trim(),
+          ifsc: ifsc.trim(),
+          branch: '',
+          upiVpa: upiVpa.trim(),
+        }
       });
 
       router.push(`/invoices/${newInv.id}`);
@@ -713,9 +745,132 @@ export default function NewInvoicePage() {
           </table>
         </div>
 
-        {/* Totals Summary */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #E5E7EB', paddingTop: '1rem' }}>
-          <div style={{ width: '350px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
+        {/* Settlement & Totals Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '2rem', borderTop: '1px solid #E5E7EB', paddingTop: '1.25rem' }}>
+          {/* Left Column: Bank Settlement Details (Optional) & Notes */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {/* Bank Details Section */}
+            <div style={{
+              border: '1px solid #E5E7EB',
+              borderRadius: '6px',
+              padding: '1rem',
+              backgroundColor: '#F9FAFB'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#171717' }}>
+                    Bank Settlement Details (Optional)
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: '#6B7280' }}>
+                    Leave blank to omit from the invoice, or customize remittance details.
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={handleUseSavedBank}
+                    style={{
+                      padding: '0.35rem 0.65rem',
+                      fontSize: '11.5px',
+                      fontWeight: 600,
+                      color: '#2563EB',
+                      backgroundColor: '#EFF6FF',
+                      border: '1px solid #BFDBFE',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Use saved company bank details
+                  </button>
+                  {(bankName || accountHolder || accountNumber || ifsc || upiVpa) && (
+                    <button
+                      type="button"
+                      onClick={handleClearBank}
+                      style={{
+                        padding: '0.35rem 0.65rem',
+                        fontSize: '11.5px',
+                        fontWeight: 600,
+                        color: '#DC2626',
+                        backgroundColor: '#FEF2F2',
+                        border: '1px solid #FECACA',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ fontSize: '11.5px', fontWeight: 600, color: '#4B5563' }}>Bank Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. HDFC Bank Ltd"
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                    style={{ width: '100%', padding: '0.45rem', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12.5px', marginTop: '2px', backgroundColor: '#FFFFFF' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11.5px', fontWeight: 600, color: '#4B5563' }}>Account Holder Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. HEXNS Mediaworks LLP"
+                    value={accountHolder}
+                    onChange={(e) => setAccountHolder(e.target.value)}
+                    style={{ width: '100%', padding: '0.45rem', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12.5px', marginTop: '2px', backgroundColor: '#FFFFFF' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11.5px', fontWeight: 600, color: '#4B5563' }}>Account Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 50200084920194"
+                    value={accountNumber}
+                    onChange={(e) => setAccountNumber(e.target.value)}
+                    style={{ width: '100%', padding: '0.45rem', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12.5px', marginTop: '2px', backgroundColor: '#FFFFFF', fontFamily: 'monospace' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11.5px', fontWeight: 600, color: '#4B5563' }}>IFSC Code</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. HDFC0000084"
+                    value={ifsc}
+                    onChange={(e) => setIfsc(e.target.value)}
+                    style={{ width: '100%', padding: '0.45rem', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12.5px', marginTop: '2px', backgroundColor: '#FFFFFF', fontFamily: 'monospace' }}
+                  />
+                </div>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label style={{ fontSize: '11.5px', fontWeight: 600, color: '#4B5563' }}>UPI ID</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. hexnsmediaworks@hdfcbank"
+                    value={upiVpa}
+                    onChange={(e) => setUpiVpa(e.target.value)}
+                    style={{ width: '100%', padding: '0.45rem', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12.5px', marginTop: '2px', backgroundColor: '#FFFFFF' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Terms / Notes */}
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>Terms / Notes</label>
+              <textarea
+                rows={2}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12px', marginTop: '4px', resize: 'vertical' }}
+              />
+            </div>
+          </div>
+
+          {/* Right Column: Totals Summary */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>Taxable Subtotal:</span>
               <span style={{ fontWeight: 600 }}>{formatINR(subtotal)}</span>

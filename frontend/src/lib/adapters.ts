@@ -14,6 +14,7 @@ import {
   Expense,
   Retainer,
   CompanySettings,
+  BankDetails,
 } from '../types/crm';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -253,6 +254,8 @@ export function adaptQuotation(raw: any, clientMap: Record<string, Client>): Quo
   const clientId = raw.clientId || raw.client_id || '';
   const client = clientMap[clientId];
   const clientName = client?.legalEntityName || client?.brandTradeName || 'Client';
+  const rawGstin = (client?.gstin || raw.clientGstin || raw.client_gstin || '').trim();
+  const clientGstin = rawGstin.toLowerCase() === 'unregistered' ? '' : rawGstin;
 
   return {
     id: raw.id,
@@ -260,6 +263,7 @@ export function adaptQuotation(raw: any, clientMap: Record<string, Client>): Quo
     revisionNumber: raw.revisionNumber ?? raw.revision_number ?? 1,
     clientId,
     clientName,
+    clientGstin,
     projectTitle: raw.projectTitle || raw.project_title || '',
     quotationDate: raw.quotationDate || raw.quotation_date || '',
     validUntil: raw.validUntil || raw.valid_until || '',
@@ -323,10 +327,22 @@ export function adaptInvoice(raw: any, clientMap: Record<string, Client>, quoteM
   const clientId = raw.clientId || raw.client_id || '';
   const client = clientMap[clientId];
   const clientName = client?.legalEntityName || client?.brandTradeName || 'Client';
+  const rawGstin = (client?.gstin || raw.clientGstin || raw.client_gstin || '').trim();
+  const clientGstin = rawGstin.toLowerCase() === 'unregistered' ? '' : rawGstin;
 
   const quotationId = raw.quotationId || raw.quotation_id || undefined;
   const quote = quotationId ? quoteMap[quotationId] : undefined;
   const quotationNumber = quote?.quotationNumber || undefined;
+
+  const rawBank = raw.bankDetails || raw.bank_details || {};
+  const bankDetails: BankDetails = {
+    bankName: rawBank.bankName || rawBank.bank_name || '',
+    accountHolder: rawBank.accountHolder || rawBank.account_holder || '',
+    accountNumber: rawBank.accountNumber || rawBank.account_number || '',
+    ifsc: rawBank.ifsc || rawBank.ifsc_code || '',
+    branch: rawBank.branch || '',
+    upiVpa: rawBank.upiVpa || rawBank.upi_vpa || rawBank.upiId || rawBank.upi_id || '',
+  };
 
   return {
     id: raw.id,
@@ -335,6 +351,7 @@ export function adaptInvoice(raw: any, clientMap: Record<string, Client>, quoteM
     quotationNumber,
     clientId,
     clientName,
+    clientGstin,
     projectTitle: raw.projectTitle || raw.project_title || '',
     invoiceDate: raw.invoiceDate || raw.invoice_date || '',
     dueDate: raw.dueDate || raw.due_date || '',
@@ -355,12 +372,13 @@ export function adaptInvoice(raw: any, clientMap: Record<string, Client>, quoteM
     balanceDue: toNumber(raw.balanceDue ?? raw.balance_due),
     status: raw.status || 'Draft',
     notes: raw.notes || '',
-    bankDetails: raw.bankDetails || raw.bank_details || {},
+    bankDetails,
     createdAt: (raw.createdAt || raw.created_at || new Date().toISOString()).slice(0, 10),
   };
 }
 
 export function toInvoiceCreatePayload(data: Omit<Invoice, 'id' | 'createdAt'>): Record<string, any> {
+  const rawBank = data.bankDetails || {};
   return {
     client_id: data.clientId,
     invoice_number: data.invoiceNumber,
@@ -373,7 +391,14 @@ export function toInvoiceCreatePayload(data: Omit<Invoice, 'id' | 'createdAt'>):
     document_discount_type: data.documentDiscountType || 'percentage',
     document_discount_value: toNumber(data.documentDiscountValue),
     notes: data.notes || '',
-    bank_details: data.bankDetails || {},
+    bank_details: {
+      bankName: rawBank.bankName?.trim() || '',
+      accountHolder: rawBank.accountHolder?.trim() || '',
+      accountNumber: rawBank.accountNumber?.trim() || '',
+      ifsc: rawBank.ifsc?.trim() || '',
+      branch: rawBank.branch?.trim() || '',
+      upiVpa: (rawBank.upiVpa || (rawBank as any).upiId)?.trim() || '',
+    },
     status: data.status || 'Draft',
     line_items: data.lineItems.map(toLineItemPayload),
   };
