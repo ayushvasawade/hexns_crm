@@ -7,6 +7,7 @@
 # Runtime & Process IDs
 .run/
 logs/
+scratch/
 *.pid
 
 # Python / Virtual Environment

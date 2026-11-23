@@ -2,24 +2,12 @@
 
 import React, { useState } from 'react';
 import { 
-  Users, 
   Search, 
   Plus, 
-  Filter, 
   Eye, 
-  Edit, 
   Copy, 
   Archive, 
-  ExternalLink,
-  Mail,
-  Phone,
-  Building,
-  CheckCircle,
-  FileText,
-  CreditCard,
-  X,
-  RotateCcw,
-  Download
+  RotateCcw
 } from 'lucide-react';
 import { useCrm } from '../../context/CrmContext';
 import { Client } from '../../types/crm';
@@ -28,7 +16,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 
 export default function ClientsPage() {
-  const { clients, quotations, invoices, payments, addClient, updateClient, archiveClient, restoreClient } = useCrm();
+  const { clients, quotations, invoices, payments, addClient, archiveClient, restoreClient } = useCrm();
 
   const [search, setSearch] = useState('');
   const [segmentFilter, setSegmentFilter] = useState('All');

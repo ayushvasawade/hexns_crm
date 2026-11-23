@@ -6,9 +6,6 @@ import { usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, 
   Receipt, 
-  FileText, 
-  CreditCard, 
-  Repeat, 
   Users, 
   Layers, 
   PackageCheck, 
@@ -22,12 +19,12 @@ import {
   Plus, 
   Menu, 
   X,
-  Check
+  Check,
+  LogOut
 } from 'lucide-react';
 import styles from './AppShell.module.css';
 import { useCrm } from '../../context/CrmContext';
 import { useAuth } from '../../context/AuthContext';
-import { LogOut } from 'lucide-react';
 
 interface AppShellProps {
   children: React.ReactNode;

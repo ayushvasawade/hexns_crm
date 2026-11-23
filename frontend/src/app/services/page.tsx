@@ -2,12 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { 
-  Layers, 
   Search, 
   Plus, 
-  Filter, 
-  Tag, 
-  Check, 
   Copy, 
   Edit, 
   Power,

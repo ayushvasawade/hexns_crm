@@ -2,16 +2,12 @@
 
 import React, { useState } from 'react';
 import { 
-  PackageCheck, 
   Search, 
   Plus, 
-  Check, 
   Copy, 
   Edit, 
   Eye, 
-  Layers,
-  ArrowRight,
-  Trash2,
+  Trash2, 
   Download
 } from 'lucide-react';
 import { useCrm } from '../../context/CrmContext';

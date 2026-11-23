@@ -9,15 +9,11 @@ import {
   Eye, 
   CreditCard, 
   Copy, 
-  Printer, 
   XCircle, 
-  AlertCircle,
-  CheckCircle2,
-  FileText,
   Download
 } from 'lucide-react';
 import { useCrm } from '../../context/CrmContext';
-import { Invoice, InvoiceStatus } from '../../types/crm';
+import { Invoice } from '../../types/crm';
 import { formatINR, formatDate } from '../../lib/formatters';
 import { isDateInRange } from '../../lib/financialCalculations';
 import { Badge } from '../../components/ui/Badge';
