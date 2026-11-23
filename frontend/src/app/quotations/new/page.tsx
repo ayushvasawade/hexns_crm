@@ -119,6 +119,8 @@ export default function QuotationBuilderPage() {
 
   const [documentDiscountValue, setDocumentDiscountValue] = useState<number>(0);
 
+  const [applyGst, setApplyGst] = useState<boolean>(true);
+
 
 
   // Stepper 5: Terms & Preview
@@ -843,15 +845,10 @@ export default function QuotationBuilderPage() {
 
 
   // GST Breakdown
-
-  const totalGst = Math.round(totalTaxableAmount * 0.18);
-
-  const cgstAmount = isInterState ? 0 : Math.round(totalGst / 2);
-
-  const sgstAmount = isInterState ? 0 : Math.round(totalGst / 2);
-
-  const igstAmount = isInterState ? totalGst : 0;
-
+  const totalGst = applyGst ? Math.round(totalTaxableAmount * 0.18) : 0;
+  const cgstAmount = isInterState || !applyGst ? 0 : Math.round(totalGst / 2);
+  const sgstAmount = isInterState || !applyGst ? 0 : Math.round(totalGst / 2);
+  const igstAmount = isInterState && applyGst ? totalGst : 0;
   const grandTotal = totalTaxableAmount + totalGst;
 
 
@@ -1009,6 +1006,8 @@ export default function QuotationBuilderPage() {
         igstAmount,
 
         grandTotal,
+
+        applyGst,
 
         paymentTerms,
 
@@ -2774,22 +2773,63 @@ export default function QuotationBuilderPage() {
                 </div>
               )}
 
-              {!isInterState ? (
-                <>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
-                    <span>CGST (9%):</span>
-                    <span>{formatINR(cgstAmount)}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
-                    <span>SGST (9%):</span>
-                    <span>{formatINR(sgstAmount)}</span>
-                  </div>
-                </>
-              ) : (
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2563EB' }}>
-                  <span>IGST (18%):</span>
-                  <span>{formatINR(igstAmount)}</span>
+              {/* Apply GST Toggle Row */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                <span style={{ color: '#374151' }}>Apply GST:</span>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setApplyGst(true)}
+                    style={{
+                      padding: '3px 8px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      borderRadius: '4px',
+                      border: applyGst ? '1px solid #16A34A' : '1px solid #D1D5DB',
+                      backgroundColor: applyGst ? '#DCFCE7' : '#FFFFFF',
+                      color: applyGst ? '#15803D' : '#6B7280',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Yes (18%)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setApplyGst(false)}
+                    style={{
+                      padding: '3px 8px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      borderRadius: '4px',
+                      border: !applyGst ? '1px solid #4B5563' : '1px solid #D1D5DB',
+                      backgroundColor: !applyGst ? '#F3F4F6' : '#FFFFFF',
+                      color: !applyGst ? '#1F2937' : '#6B7280',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    No (0%)
+                  </button>
                 </div>
+              </div>
+
+              {applyGst && (
+                !isInterState ? (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
+                      <span>CGST (9%):</span>
+                      <span>{formatINR(cgstAmount)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
+                      <span>SGST (9%):</span>
+                      <span>{formatINR(sgstAmount)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2563EB' }}>
+                    <span>IGST (18%):</span>
+                    <span>{formatINR(igstAmount)}</span>
+                  </div>
+                )
               )}
 
               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #171717', paddingTop: '6px', marginTop: '4px' }}>
@@ -2957,7 +2997,11 @@ export default function QuotationBuilderPage() {
 
                   Client Place of Supply: <strong>{selectedClient?.placeOfSupply || 'Maharashtra (27)'}</strong>.<br />
 
-                  {isInterState ? (
+                  {!applyGst ? (
+
+                    <span style={{ color: '#6B7280', fontWeight: 600 }}>• Applied Tax: GST Disabled (GST-Free / Zero Tax)</span>
+
+                  ) : isInterState ? (
 
                     <span style={{ color: '#2563EB', fontWeight: 600 }}>• Applied Tax: IGST @ 18% (Inter-State Trade)</span>
 
@@ -2968,6 +3012,44 @@ export default function QuotationBuilderPage() {
                   )}
 
                 </p>
+
+                <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #E5E7EB', paddingTop: '6px' }}>
+                  <span style={{ fontWeight: 600 }}>Apply GST to Quotation:</span>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setApplyGst(true)}
+                      style={{
+                        padding: '3px 8px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        borderRadius: '4px',
+                        border: applyGst ? '1px solid #16A34A' : '1px solid #D1D5DB',
+                        backgroundColor: applyGst ? '#DCFCE7' : '#FFFFFF',
+                        color: applyGst ? '#15803D' : '#6B7280',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Yes (18%)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setApplyGst(false)}
+                      style={{
+                        padding: '3px 8px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        borderRadius: '4px',
+                        border: !applyGst ? '1px solid #4B5563' : '1px solid #D1D5DB',
+                        backgroundColor: !applyGst ? '#F3F4F6' : '#FFFFFF',
+                        color: !applyGst ? '#1F2937' : '#6B7280',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      No (0%)
+                    </button>
+                  </div>
+                </div>
 
               </div>
 
@@ -3013,38 +3095,40 @@ export default function QuotationBuilderPage() {
 
 
 
-              {!isInterState ? (
+              {applyGst && (
+                !isInterState ? (
 
-                <>
+                  <>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12.5px', color: '#4B5563' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12.5px', color: '#4B5563' }}>
 
-                    <span>CGST (9%):</span>
+                      <span>CGST (9%):</span>
 
-                    <span>{formatINR(cgstAmount)}</span>
+                      <span>{formatINR(cgstAmount)}</span>
+
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12.5px', color: '#4B5563' }}>
+
+                      <span>SGST (9%):</span>
+
+                      <span>{formatINR(sgstAmount)}</span>
+
+                    </div>
+
+                  </>
+
+                ) : (
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12.5px', color: '#2563EB' }}>
+
+                    <span>IGST (18%):</span>
+
+                    <span>{formatINR(igstAmount)}</span>
 
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12.5px', color: '#4B5563' }}>
-
-                    <span>SGST (9%):</span>
-
-                    <span>{formatINR(sgstAmount)}</span>
-
-                  </div>
-
-                </>
-
-              ) : (
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12.5px', color: '#2563EB' }}>
-
-                  <span>IGST (18%):</span>
-
-                  <span>{formatINR(igstAmount)}</span>
-
-                </div>
-
+                )
               )}
 
 
@@ -3390,38 +3474,40 @@ export default function QuotationBuilderPage() {
                   </div>
                 )}
 
-                {!isInterState ? (
+                {applyGst && (
+                  !isInterState ? (
 
-                  <>
+                    <>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
 
-                      <span>CGST (9%):</span>
+                        <span>CGST (9%):</span>
 
-                      <span>{formatINR(cgstAmount)}</span>
+                        <span>{formatINR(cgstAmount)}</span>
+
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
+
+                        <span>SGST (9%):</span>
+
+                        <span>{formatINR(sgstAmount)}</span>
+
+                      </div>
+
+                    </>
+
+                  ) : (
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2563EB' }}>
+
+                      <span>IGST (18%):</span>
+
+                      <span>{formatINR(igstAmount)}</span>
 
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
-
-                      <span>SGST (9%):</span>
-
-                      <span>{formatINR(sgstAmount)}</span>
-
-                    </div>
-
-                  </>
-
-                ) : (
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2563EB' }}>
-
-                    <span>IGST (18%):</span>
-
-                    <span>{formatINR(igstAmount)}</span>
-
-                  </div>
-
+                  )
                 )}
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #171717', paddingTop: '6px', marginTop: '4px' }}>

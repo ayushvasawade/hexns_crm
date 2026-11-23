@@ -28,8 +28,12 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
   const clientGstin = rawGstin.toLowerCase() === 'unregistered' ? '' : rawGstin;
   const [editingPricing, setEditingPricing] = useState(false);
   const [draftLines, setDraftLines] = useState(quote?.lineItems || []);
+  const [draftApplyGst, setDraftApplyGst] = useState(quote?.applyGst !== false);
   useEffect(() => {
-    if (quote) setDraftLines(quote.lineItems);
+    if (quote) {
+      setDraftLines(quote.lineItems);
+      setDraftApplyGst(quote.applyGst !== false);
+    }
   }, [quote]);
 
   if (!quote) {
@@ -61,7 +65,7 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
   };
 
   const savePricing = async () => {
-    await updateQuotation(quote.id, { lineItems: draftLines });
+    await updateQuotation(quote.id, { lineItems: draftLines, applyGst: draftApplyGst });
     setEditingPricing(false);
   };
 
@@ -77,6 +81,11 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h1 style={{ fontSize: '20px', fontWeight: 800, color: '#171717' }}>{quote.quotationNumber}</h1>
               <Badge status={quote.status} />
+              {quote.applyGst === false && (
+                <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px', backgroundColor: '#F3F4F6', color: '#4B5563', border: '1px solid #D1D5DB' }}>
+                  GST-Free
+                </span>
+              )}
             </div>
             <p style={{ fontSize: '13px', color: '#737373' }}>
               Client: <strong>{quote.clientName}</strong> • Revision {quote.revisionNumber}
@@ -237,6 +246,46 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
           </div>
         </div>
 
+        {editingPricing && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '6px', marginBottom: '1rem' }}>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>Apply GST:</span>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <button
+                type="button"
+                onClick={() => setDraftApplyGst(true)}
+                style={{
+                  padding: '3px 8px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  borderRadius: '4px',
+                  border: draftApplyGst ? '1px solid #16A34A' : '1px solid #D1D5DB',
+                  backgroundColor: draftApplyGst ? '#DCFCE7' : '#FFFFFF',
+                  color: draftApplyGst ? '#15803D' : '#6B7280',
+                  cursor: 'pointer'
+                }}
+              >
+                Yes (18%)
+              </button>
+              <button
+                type="button"
+                onClick={() => setDraftApplyGst(false)}
+                style={{
+                  padding: '3px 8px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  borderRadius: '4px',
+                  border: !draftApplyGst ? '1px solid #4B5563' : '1px solid #D1D5DB',
+                  backgroundColor: !draftApplyGst ? '#F3F4F6' : '#FFFFFF',
+                  color: !draftApplyGst ? '#1F2937' : '#6B7280',
+                  cursor: 'pointer'
+                }}
+              >
+                No (0%)
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Deliverables Table */}
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px', textAlign: 'left' }}>
           <thead>
@@ -299,22 +348,24 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
                 <span style={{ fontWeight: 600 }}>- {formatINR(quote.documentDiscountAmount)}</span>
               </div>
             )}
-            {!quote.isInterState ? (
-              <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
-                  <span>CGST (9%):</span>
-                  <span>{formatINR(quote.cgstAmount)}</span>
+            {quote.applyGst !== false && (
+              !quote.isInterState ? (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
+                    <span>CGST (9%):</span>
+                    <span>{formatINR(quote.cgstAmount)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
+                    <span>SGST (9%):</span>
+                    <span>{formatINR(quote.sgstAmount)}</span>
+                  </div>
+                </>
+              ) : (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2563EB' }}>
+                  <span>IGST (18%):</span>
+                  <span>{formatINR(quote.igstAmount)}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
-                  <span>SGST (9%):</span>
-                  <span>{formatINR(quote.sgstAmount)}</span>
-                </div>
-              </>
-            ) : (
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2563EB' }}>
-                <span>IGST (18%):</span>
-                <span>{formatINR(quote.igstAmount)}</span>
-              </div>
+              )
             )}
             <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #171717', paddingTop: '6px', marginTop: '4px' }}>
               <span style={{ fontWeight: 800 }}>Total Payable:</span>

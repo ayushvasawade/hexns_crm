@@ -501,6 +501,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (updated.validUntil !== undefined) payload.valid_until = updated.validUntil;
     if (updated.placeOfSupply !== undefined) payload.place_of_supply = updated.placeOfSupply;
     if (updated.isInterState !== undefined) payload.is_inter_state = updated.isInterState;
+    if (updated.applyGst !== undefined) payload.apply_gst = updated.applyGst;
     if (updated.salesExecutive !== undefined) payload.sales_executive = updated.salesExecutive;
     if (updated.documentDiscountType !== undefined) payload.document_discount_type = updated.documentDiscountType;
     if (updated.documentDiscountValue !== undefined) payload.document_discount_value = updated.documentDiscountValue;
@@ -566,6 +567,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newNum = `${settings.quotationPrefix}${String(Date.now()).slice(-4)}`;
     return await addQuotation({
       ...quote,
+      applyGst: quote.applyGst !== false,
       quotationNumber: newNum,
       revisionNumber: 1,
       projectTitle: `${quote.projectTitle} (Copy)`,
@@ -593,6 +595,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (updated.dueDate !== undefined) payload.due_date = updated.dueDate;
     if (updated.placeOfSupply !== undefined) payload.place_of_supply = updated.placeOfSupply;
     if (updated.isInterState !== undefined) payload.is_inter_state = updated.isInterState;
+    if (updated.applyGst !== undefined) payload.apply_gst = updated.applyGst;
     if (updated.documentDiscountType !== undefined) payload.document_discount_type = updated.documentDiscountType;
     if (updated.documentDiscountValue !== undefined) payload.document_discount_value = updated.documentDiscountValue;
     if (updated.notes !== undefined) payload.notes = updated.notes;
@@ -617,6 +620,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newNum = `${settings.invoicePrefix}${String(Date.now()).slice(-4)}`;
     return await addInvoice({
       ...inv,
+      applyGst: inv.applyGst !== false,
       invoiceNumber: newNum,
       invoiceDate: new Date().toISOString().split('T')[0],
       dueDate: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0],

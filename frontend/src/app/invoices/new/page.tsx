@@ -32,6 +32,7 @@ export default function NewInvoicePage() {
   // Discount state
   const [discountType, setDiscountType] = useState<'' | 'percentage' | 'fixed'>('');
   const [discountValue, setDiscountValue] = useState<number>(0);
+  const [applyGst, setApplyGst] = useState<boolean>(true);
 
   const nextInvNum = `${settings.invoicePrefix}${String(Date.now()).slice(-4)}`;
   const [invoiceNumber, setInvoiceNumber] = useState(nextInvNum);
@@ -187,6 +188,9 @@ export default function NewInvoicePage() {
     setProjectTitle(q.projectTitle);
     setLineItems([...q.lineItems]);
     setNotes(`Billed against agreed quotation ${q.quotationNumber}.`);
+    if (q.applyGst !== undefined) {
+      setApplyGst(q.applyGst);
+    }
     if (q.documentDiscountType && q.documentDiscountValue > 0) {
       setDiscountType(q.documentDiscountType);
       setDiscountValue(q.documentDiscountValue);
@@ -331,21 +335,23 @@ export default function NewInvoicePage() {
   let igstAmount = 0;
   let totalGst = 0;
 
-  lineItems.forEach(line => {
-    const lineSubtotal = line.lineSubtotal || (line.quantity * line.negotiatedUnitPrice);
-    const allocatedDiscount = subtotal > 0 ? (calculatedDiscountAmount * lineSubtotal) / subtotal : 0;
-    const adjustedTaxable = Math.max(0, lineSubtotal - allocatedDiscount);
-    const rate = line.gstRate ?? 18;
-    const tax = Math.round((adjustedTaxable * rate) / 100);
-    totalGst += tax;
-    if (isInterState) {
-      igstAmount += tax;
-    } else {
-      const half = Math.round(tax / 2);
-      cgstAmount += half;
-      sgstAmount += (tax - half);
-    }
-  });
+  if (applyGst) {
+    lineItems.forEach(line => {
+      const lineSubtotal = line.lineSubtotal || (line.quantity * line.negotiatedUnitPrice);
+      const allocatedDiscount = subtotal > 0 ? (calculatedDiscountAmount * lineSubtotal) / subtotal : 0;
+      const adjustedTaxable = Math.max(0, lineSubtotal - allocatedDiscount);
+      const rate = line.gstRate ?? 18;
+      const tax = Math.round((adjustedTaxable * rate) / 100);
+      totalGst += tax;
+      if (isInterState) {
+        igstAmount += tax;
+      } else {
+        const half = Math.round(tax / 2);
+        cgstAmount += half;
+        sgstAmount += (tax - half);
+      }
+    });
+  }
 
   const grandTotal = netTaxableAmount + totalGst;
 
@@ -418,6 +424,7 @@ export default function NewInvoicePage() {
         dueDate,
         placeOfSupply: clientToUse.placeOfSupply,
         isInterState: clientToUse.stateCode !== '27',
+        applyGst,
         lineItems,
         documentDiscountType: discountType || 'percentage',
         documentDiscountValue: discountType ? discountValue : 0,
@@ -678,11 +685,16 @@ export default function NewInvoicePage() {
                         })}
                       </select>
                     )}
-                    {item.billingUnit && <div style={{ fontSize: '11px', color: '#737373', marginTop: '3px' }}>{item.billingUnit}</div>}
-                    {item.defaultPrice === 0 && item.minPrice === 0 && (
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', marginTop: '3px', padding: '1px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, backgroundColor: '#FEF3C7', color: '#B45309', border: '1px solid #FCD34D' }}>
-                        Custom rate required
-                      </div>
+                    {item.billingUnit && <div style={{ fontSize: '11px', color: '#737373', marginTop: '3px' }}>{item.billingUnit}</div>}
+
+                    {item.defaultPrice === 0 && item.minPrice === 0 && (
+
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', marginTop: '3px', padding: '1px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, backgroundColor: '#FEF3C7', color: '#B45309', border: '1px solid #FCD34D' }}>
+
+                        Custom rate required
+
+                      </div>
+
                     )}
                   </td>
                   <td style={{ padding: '8px', width: '90px' }}>
@@ -963,22 +975,63 @@ export default function NewInvoicePage() {
               </div>
             )}
 
-            {!isInterState ? (
-              <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
-                  <span>CGST (9%):</span>
-                  <span>{formatINR(cgstAmount)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
-                  <span>SGST (9%):</span>
-                  <span>{formatINR(sgstAmount)}</span>
-                </div>
-              </>
-            ) : (
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2563EB' }}>
-                <span>IGST (18%):</span>
-                <span>{formatINR(igstAmount)}</span>
+            {/* Apply GST Toggle Row */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+              <span style={{ color: '#374151' }}>Apply GST:</span>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => setApplyGst(true)}
+                  style={{
+                    padding: '3px 8px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    borderRadius: '4px',
+                    border: applyGst ? '1px solid #16A34A' : '1px solid #D1D5DB',
+                    backgroundColor: applyGst ? '#DCFCE7' : '#FFFFFF',
+                    color: applyGst ? '#15803D' : '#6B7280',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Yes (18%)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setApplyGst(false)}
+                  style={{
+                    padding: '3px 8px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    borderRadius: '4px',
+                    border: !applyGst ? '1px solid #4B5563' : '1px solid #D1D5DB',
+                    backgroundColor: !applyGst ? '#F3F4F6' : '#FFFFFF',
+                    color: !applyGst ? '#1F2937' : '#6B7280',
+                    cursor: 'pointer'
+                  }}
+                >
+                  No (0%)
+                </button>
               </div>
+            </div>
+
+            {applyGst && (
+              !isInterState ? (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
+                    <span>CGST (9%):</span>
+                    <span>{formatINR(cgstAmount)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
+                    <span>SGST (9%):</span>
+                    <span>{formatINR(sgstAmount)}</span>
+                  </div>
+                </>
+              ) : (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2563EB' }}>
+                  <span>IGST (18%):</span>
+                  <span>{formatINR(igstAmount)}</span>
+                </div>
+              )
             )}
             <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #171717', paddingTop: '6px', marginTop: '4px' }}>
               <span style={{ fontWeight: 800 }}>Invoice Grand Total:</span>

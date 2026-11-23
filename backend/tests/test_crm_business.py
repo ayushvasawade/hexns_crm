@@ -94,6 +94,50 @@ def test_document_totals_prompt_scenarios():
     with pytest.raises(Exception):
         apply_document_totals([Line()], values, "fixed", Decimal("15000"), False)
 
+    # 7. Document GST disabled without discount
+    line7 = Line()
+    totals7 = apply_document_totals([line7], values, "percentage", Decimal("0"), False, apply_gst=False)
+    assert totals7["document_discount_amount"] == Decimal("0.00")
+    assert totals7["total_taxable_amount"] == Decimal("10000.00")
+    assert totals7["cgst_amount"] == Decimal("0.00")
+    assert totals7["sgst_amount"] == Decimal("0.00")
+    assert totals7["igst_amount"] == Decimal("0.00")
+    assert totals7["grand_total"] == Decimal("10000.00")
+    assert line7.tax_amount == Decimal("0.00")
+    assert line7.line_total == Decimal("10000.00")
+
+    # 8. Document GST disabled with 10% discount
+    line8 = Line()
+    totals8 = apply_document_totals([line8], values, "percentage", Decimal("10"), False, apply_gst=False)
+    assert totals8["document_discount_amount"] == Decimal("1000.00")
+    assert totals8["total_taxable_amount"] == Decimal("9000.00")
+    assert totals8["cgst_amount"] == Decimal("0.00")
+    assert totals8["sgst_amount"] == Decimal("0.00")
+    assert totals8["igst_amount"] == Decimal("0.00")
+    assert totals8["grand_total"] == Decimal("9000.00")
+    assert line8.taxable_amount == Decimal("9000.00")
+    assert line8.tax_amount == Decimal("0.00")
+    assert line8.line_total == Decimal("9000.00")
+
+    # 9. Document GST disabled with fixed ₹500 discount
+    line9 = Line()
+    totals9 = apply_document_totals([line9], values, "fixed", Decimal("500"), False, apply_gst=False)
+    assert totals9["document_discount_amount"] == Decimal("500.00")
+    assert totals9["total_taxable_amount"] == Decimal("9500.00")
+    assert totals9["cgst_amount"] == Decimal("0.00")
+    assert totals9["sgst_amount"] == Decimal("0.00")
+    assert totals9["igst_amount"] == Decimal("0.00")
+    assert totals9["grand_total"] == Decimal("9500.00")
+    assert line9.line_total == Decimal("9500.00")
+
+    # 10. Document GST disabled inter-state with discount
+    line10 = Line()
+    totals10 = apply_document_totals([line10], values, "percentage", Decimal("10"), True, apply_gst=False)
+    assert totals10["igst_amount"] == Decimal("0.00")
+    assert totals10["cgst_amount"] == Decimal("0.00")
+    assert totals10["sgst_amount"] == Decimal("0.00")
+    assert totals10["grand_total"] == Decimal("9000.00")
+
 def test_document_totals_reject_invalid_discount():
     class Line:
         taxable_amount = Decimal("100")
@@ -335,3 +379,86 @@ def test_resolve_date_range_presets():
     s, e = resolve_date_range("This Financial Year (FY 26-27)", None, None)
     assert s.month == 4 and s.day == 1
     assert e.month == 3 and e.day == 31
+
+
+def test_document_schema_apply_gst_defaults_and_validation():
+    from datetime import date
+    from uuid import uuid4
+    from app.modules.crm.schemas import (
+        QuotationCreate, QuotationUpdate, QuotationResponse,
+        InvoiceCreate, InvoiceUpdate, InvoiceResponse
+    )
+
+    test_lines = [
+        {
+            "service_name": "Video Shoot",
+            "description": "Production",
+            "sac_code": "998311",
+            "quantity": Decimal("1"),
+            "billing_unit": "Per Day",
+            "min_price": Decimal("10000"),
+            "default_price": Decimal("15000"),
+            "max_price": Decimal("20000"),
+            "selected_tier": "DEFAULT",
+            "negotiated_unit_price": Decimal("15000"),
+        }
+    ]
+
+    # QuotationCreate default apply_gst is True
+    q_create = QuotationCreate(
+        client_id=uuid4(),
+        quotation_number="HEX/26-27/Q-0001",
+        project_title="Brand Campaign",
+        quotation_date=date.today(),
+        valid_until=date.today(),
+        place_of_supply="Maharashtra (27)",
+        line_items=test_lines,
+    )
+    assert q_create.apply_gst is True
+
+    # QuotationCreate explicit apply_gst=False
+    q_create_false = QuotationCreate(
+        client_id=uuid4(),
+        quotation_number="HEX/26-27/Q-0002",
+        project_title="Brand Campaign",
+        quotation_date=date.today(),
+        valid_until=date.today(),
+        place_of_supply="Maharashtra (27)",
+        apply_gst=False,
+        line_items=test_lines,
+    )
+    assert q_create_false.apply_gst is False
+
+    # QuotationUpdate accepts apply_gst
+    q_update = QuotationUpdate(apply_gst=False)
+    assert q_update.apply_gst is False
+
+    # InvoiceCreate default apply_gst is True
+    inv_create = InvoiceCreate(
+        client_id=uuid4(),
+        invoice_number="INV-001",
+        project_title="Brand Campaign",
+        invoice_date=date.today(),
+        due_date=date.today(),
+        place_of_supply="Maharashtra (27)",
+        line_items=test_lines,
+    )
+    assert inv_create.apply_gst is True
+
+    # InvoiceCreate explicit apply_gst=False
+    inv_create_false = InvoiceCreate(
+        client_id=uuid4(),
+        invoice_number="INV-002",
+        project_title="Brand Campaign",
+        invoice_date=date.today(),
+        due_date=date.today(),
+        place_of_supply="Maharashtra (27)",
+        apply_gst=False,
+        line_items=test_lines,
+    )
+    assert inv_create_false.apply_gst is False
+
+    # InvoiceUpdate accepts apply_gst
+    inv_update = InvoiceUpdate(apply_gst=False)
+    assert inv_update.apply_gst is False
+

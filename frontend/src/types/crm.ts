@@ -152,6 +152,7 @@ export interface Quotation {
   validUntil: string;
   placeOfSupply: string;
   isInterState: boolean;
+  applyGst: boolean;
   salesExecutive: string;
   lineItems: DocumentLineItem[];
   documentDiscountType: 'percentage' | 'fixed';
@@ -190,6 +191,7 @@ export interface Invoice {
   dueDate: string;
   placeOfSupply: string;
   isInterState: boolean;
+  applyGst: boolean;
   lineItems: DocumentLineItem[];
   documentDiscountType: 'percentage' | 'fixed';
   documentDiscountValue: number;

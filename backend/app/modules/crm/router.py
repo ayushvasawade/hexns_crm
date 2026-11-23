@@ -362,6 +362,7 @@ async def create_quotation(payload: QuotationCreate, db: Db, user: CurrentUser) 
         valid_until=payload.valid_until,
         place_of_supply=payload.place_of_supply,
         is_inter_state=payload.is_inter_state,
+        apply_gst=payload.apply_gst,
         sales_executive=payload.sales_executive,
         document_discount_type=payload.document_discount_type,
         document_discount_value=payload.document_discount_value,
@@ -386,7 +387,7 @@ async def create_quotation(payload: QuotationCreate, db: Db, user: CurrentUser) 
     await db.flush()
     lines, values = await prepare_document_lines(db, user.id, payload.line_items, QuotationLineItem, "quotation_id", item.id)
     db.add_all(lines)
-    totals = apply_document_totals(lines, values, payload.document_discount_type, payload.document_discount_value, payload.is_inter_state)
+    totals = apply_document_totals(lines, values, payload.document_discount_type, payload.document_discount_value, payload.is_inter_state, apply_gst=payload.apply_gst)
     for key, value in totals.items():
         setattr(item, key, value)
     await commit_or_conflict(db)
@@ -422,6 +423,7 @@ async def convert_quotation(
         due_date=due_date,
         place_of_supply=quote.place_of_supply,
         is_inter_state=quote.is_inter_state,
+        apply_gst=quote.apply_gst,
         document_discount_type=quote.document_discount_type,
         document_discount_value=quote.document_discount_value,
         total_line_subtotal=quote.total_line_subtotal,
@@ -483,7 +485,7 @@ async def update_quotation(item_id: UUID, payload: QuotationUpdate, db: Db, user
     for key, value in updates.items():
         setattr(item, key, value)
     needs_recalculation = payload.line_items is not None or any(
-        field in updates for field in ("document_discount_type", "document_discount_value", "is_inter_state")
+        field in updates for field in ("document_discount_type", "document_discount_value", "is_inter_state", "apply_gst")
     )
     if needs_recalculation:
         source_lines = payload.line_items if payload.line_items is not None else list(item.lines)
@@ -492,6 +494,7 @@ async def update_quotation(item_id: UUID, payload: QuotationUpdate, db: Db, user
         recalculated = await rebuild_document_totals(
             db, user.id, source_lines, QuotationLineItem, "quotation_id", item.id,
             item.document_discount_type, item.document_discount_value, item.is_inter_state,
+            apply_gst=item.apply_gst,
         )
         new_lines = recalculated.pop("lines")
         db.add_all(new_lines)
@@ -540,6 +543,7 @@ async def create_invoice(payload: InvoiceCreate, db: Db, user: CurrentUser) -> I
         due_date=payload.due_date,
         place_of_supply=payload.place_of_supply,
         is_inter_state=payload.is_inter_state,
+        apply_gst=payload.apply_gst,
         document_discount_type=payload.document_discount_type,
         document_discount_value=payload.document_discount_value,
         notes=payload.notes,
@@ -560,7 +564,7 @@ async def create_invoice(payload: InvoiceCreate, db: Db, user: CurrentUser) -> I
     await db.flush()
     lines, values = await prepare_document_lines(db, user.id, payload.line_items, InvoiceLineItem, "invoice_id", item.id)
     db.add_all(lines)
-    totals = apply_document_totals(lines, values, payload.document_discount_type, payload.document_discount_value, payload.is_inter_state)
+    totals = apply_document_totals(lines, values, payload.document_discount_type, payload.document_discount_value, payload.is_inter_state, apply_gst=payload.apply_gst)
     for key, value in totals.items():
         setattr(item, key, value)
     item.balance_due = item.grand_total
@@ -584,7 +588,7 @@ async def update_invoice(item_id: UUID, payload: InvoiceUpdate, db: Db, user: Cu
     for key, value in updates.items():
         setattr(item, key, value)
     needs_recalculation = payload.line_items is not None or any(
-        field in updates for field in ("document_discount_type", "document_discount_value", "is_inter_state")
+        field in updates for field in ("document_discount_type", "document_discount_value", "is_inter_state", "apply_gst")
     )
     if needs_recalculation:
         source_lines = payload.line_items if payload.line_items is not None else list(item.lines)
@@ -593,6 +597,7 @@ async def update_invoice(item_id: UUID, payload: InvoiceUpdate, db: Db, user: Cu
         recalculated = await rebuild_document_totals(
             db, user.id, source_lines, InvoiceLineItem, "invoice_id", item.id,
             item.document_discount_type, item.document_discount_value, item.is_inter_state,
+            apply_gst=item.apply_gst,
         )
         new_lines = recalculated.pop("lines")
         db.add_all(new_lines)

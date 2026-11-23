@@ -137,7 +137,7 @@ export function generateQuotationPDF(quotation: Quotation, _settings: CompanySet
     `${it.quantity} ${it.billingUnit}`,
     formatINRWithDecimals(it.negotiatedUnitPrice),
     formatINRWithDecimals(it.taxableAmount),
-    `${it.gstRate}%`,
+    quotation.applyGst === false ? '—' : `${it.gstRate}%`,
     formatINRWithDecimals(it.lineTotal)
   ]);
 
@@ -211,17 +211,19 @@ export function generateQuotationPDF(quotation: Quotation, _settings: CompanySet
     doc.text(formatINRWithDecimals(-docDiscount), valueX, currentY, { align: 'right' });
   }
 
-  if (quotation.isInterState) {
-    currentY += 5;
-    doc.text("Integrated GST (18% IGST):", totalsX, currentY);
-    doc.text(formatINRWithDecimals(quotation.igstAmount), valueX, currentY, { align: 'right' });
-  } else {
-    currentY += 5;
-    doc.text("Central GST (9% CGST):", totalsX, currentY);
-    doc.text(formatINRWithDecimals(quotation.cgstAmount), valueX, currentY, { align: 'right' });
-    currentY += 5;
-    doc.text("State GST (9% SGST):", totalsX, currentY);
-    doc.text(formatINRWithDecimals(quotation.sgstAmount), valueX, currentY, { align: 'right' });
+  if (quotation.applyGst !== false) {
+    if (quotation.isInterState) {
+      currentY += 5;
+      doc.text("Integrated GST (18% IGST):", totalsX, currentY);
+      doc.text(formatINRWithDecimals(quotation.igstAmount), valueX, currentY, { align: 'right' });
+    } else {
+      currentY += 5;
+      doc.text("Central GST (9% CGST):", totalsX, currentY);
+      doc.text(formatINRWithDecimals(quotation.cgstAmount), valueX, currentY, { align: 'right' });
+      currentY += 5;
+      doc.text("State GST (9% SGST):", totalsX, currentY);
+      doc.text(formatINRWithDecimals(quotation.sgstAmount), valueX, currentY, { align: 'right' });
+    }
   }
 
   const grandTotalY = currentY + 7;
@@ -274,7 +276,7 @@ export function generateInvoicePDF(invoice: Invoice, settings: CompanySettings) 
   doc.setFont(PDF_FONT, 'bold');
   doc.setFontSize(14);
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text("TAX INVOICE", 14, 36);
+  doc.text(invoice.applyGst === false ? "INVOICE" : "TAX INVOICE", 14, 36);
 
   doc.setFontSize(9);
   doc.text(`Invoice #: ${invoice.invoiceNumber}`, 140, 36);
@@ -306,7 +308,7 @@ export function generateInvoicePDF(invoice: Invoice, settings: CompanySettings) 
     `${it.quantity} ${it.billingUnit}`,
     formatINRWithDecimals(it.negotiatedUnitPrice),
     formatINRWithDecimals(it.taxableAmount),
-    `${it.gstRate}%`,
+    invoice.applyGst === false ? '—' : `${it.gstRate}%`,
     formatINRWithDecimals(it.lineTotal)
   ]);
 
@@ -381,17 +383,19 @@ export function generateInvoicePDF(invoice: Invoice, settings: CompanySettings) 
     doc.text(formatINRWithDecimals(-docDiscount), valueX, currentY, { align: 'right' });
   }
 
-  if (invoice.isInterState) {
-    currentY += 5;
-    doc.text("Integrated GST (18% IGST):", totalsX, currentY);
-    doc.text(formatINRWithDecimals(invoice.igstAmount), valueX, currentY, { align: 'right' });
-  } else {
-    currentY += 5;
-    doc.text("Central GST (9% CGST):", totalsX, currentY);
-    doc.text(formatINRWithDecimals(invoice.cgstAmount), valueX, currentY, { align: 'right' });
-    currentY += 5;
-    doc.text("State GST (9% SGST):", totalsX, currentY);
-    doc.text(formatINRWithDecimals(invoice.sgstAmount), valueX, currentY, { align: 'right' });
+  if (invoice.applyGst !== false) {
+    if (invoice.isInterState) {
+      currentY += 5;
+      doc.text("Integrated GST (18% IGST):", totalsX, currentY);
+      doc.text(formatINRWithDecimals(invoice.igstAmount), valueX, currentY, { align: 'right' });
+    } else {
+      currentY += 5;
+      doc.text("Central GST (9% CGST):", totalsX, currentY);
+      doc.text(formatINRWithDecimals(invoice.cgstAmount), valueX, currentY, { align: 'right' });
+      currentY += 5;
+      doc.text("State GST (9% SGST):", totalsX, currentY);
+      doc.text(formatINRWithDecimals(invoice.sgstAmount), valueX, currentY, { align: 'right' });
+    }
   }
 
   const grandTotalY = currentY + 7;
@@ -443,8 +447,8 @@ export function generateInvoicePDF(invoice: Invoice, settings: CompanySettings) 
 }
 
 export function generateReportPDF(
-  reportTitle: string, 
-  dateRange: string, 
+  reportTitle: string,
+  dateRange: string,
   summaryData: Record<string, number | string>,
   tableHeaders: string[],
   tableRows: (string | number)[][],

@@ -3,11 +3,11 @@
 import React, { use, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { 
-  ArrowLeft, 
-  Printer, 
-  CreditCard, 
-  CheckCircle2, 
+import {
+  ArrowLeft,
+  Printer,
+  CreditCard,
+  CheckCircle2,
   FileText,
   Clock,
   AlertCircle,
@@ -30,10 +30,14 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const invoice = invoices.find(inv => inv.id.toLowerCase() === decodedId || inv.invoiceNumber?.toLowerCase() === decodedId);
   const [editingPricing, setEditingPricing] = useState(false);
   const [draftLines, setDraftLines] = useState(invoice?.lineItems || []);
+  const [draftApplyGst, setDraftApplyGst] = useState(invoice?.applyGst !== false);
   const [selectedPackageId, setSelectedPackageId] = useState('');
   const [packageSearchTerm, setPackageSearchTerm] = useState('');
   React.useEffect(() => {
-    if (invoice) setDraftLines(invoice.lineItems);
+    if (invoice) {
+      setDraftLines(invoice.lineItems);
+      setDraftApplyGst(invoice.applyGst !== false);
+    }
   }, [invoice]);
   const [showPayModal, setShowPayModal] = useState(false);
   const [payAmount, setPayAmount] = useState(invoice ? String(invoice.balanceDue) : '');
@@ -155,7 +159,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   };
 
   const savePricing = async () => {
-    await updateInvoice(invoice.id, { lineItems: draftLines });
+    await updateInvoice(invoice.id, { lineItems: draftLines, applyGst: draftApplyGst });
     setEditingPricing(false);
   };
 
@@ -196,6 +200,19 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h1 style={{ fontSize: '20px', fontWeight: 800, color: '#171717' }}>{invoice.invoiceNumber}</h1>
               <Badge status={invoice.status} />
+              {invoice.applyGst === false && (
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  backgroundColor: '#F3F4F6',
+                  color: '#4B5563',
+                  border: '1px solid #E5E7EB'
+                }}>
+                  GST-Free
+                </span>
+              )}
             </div>
             <p style={{ fontSize: '13px', color: '#737373' }}>
               Client: <strong>{invoice.clientName}</strong> • Due: {formatDate(invoice.dueDate)}
@@ -204,7 +221,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <button 
+          <button
             type="button"
             onClick={() => {
               try {
@@ -232,7 +249,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             <span>Download PDF</span>
           </button>
 
-          <button 
+          <button
             type="button"
             onClick={() => window.print()}
             style={{
@@ -253,7 +270,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             <span>Print Tax Invoice</span>
           </button>
 
-          <button 
+          <button
             type="button"
             onClick={openEditBankModal}
             style={{
@@ -274,7 +291,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           </button>
 
           {invoice.balanceDue > 0 && (
-            <button 
+            <button
               onClick={() => {
                 setPayAmount(String(invoice.balanceDue));
                 setShowPayModal(true);
@@ -309,7 +326,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         <div className="print-avoid-break" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px solid #171717', paddingBottom: '0.85rem' }}>
           <div>
             <span style={{ fontSize: '18px', fontWeight: 800, color: '#171717', letterSpacing: '0.04em' }}>
-              TAX INVOICE
+              {invoice.applyGst === false ? 'INVOICE' : 'TAX INVOICE'}
             </span>
             <div style={{ fontSize: '13.5px', fontWeight: 700, marginTop: '3px', fontFamily: 'monospace', color: '#2563EB' }}>
               {invoice.invoiceNumber}
@@ -335,7 +352,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
               {invoice.clientName}
             </div>
             <div style={{ color: '#4B5563' }}>Place of Supply: <strong>{invoice.placeOfSupply}</strong></div>
-            <div style={{ color: '#4B5563' }}>Tax Type: {invoice.isInterState ? 'Inter-State (IGST)' : 'Intra-State (CGST+SGST)'}</div>
+            <div style={{ color: '#4B5563' }}>Tax Type: {invoice.applyGst === false ? 'GST-Free (No Tax)' : (invoice.isInterState ? 'Inter-State (IGST)' : 'Intra-State (CGST+SGST)')}</div>
           </div>
           <div>
             <span style={{ fontSize: '11px', fontWeight: 700, color: '#737373', textTransform: 'uppercase' }}>Project Reference:</span>
@@ -346,18 +363,18 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         </div>
 
         {editingPricing && (
-          <div className="no-print" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '1rem' }}>
+          <div className="no-print" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '1rem', flexWrap: 'wrap' }}>
             <input
               type="search"
               value={packageSearchTerm}
               onChange={(event) => setPackageSearchTerm(event.target.value)}
               placeholder="Search packages..."
-              style={{ flex: 1, padding: '0.45rem 0.6rem', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12.5px' }}
+              style={{ flex: 1, minWidth: '160px', padding: '0.45rem 0.6rem', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12.5px' }}
             />
             <select
               value={selectedPackageId}
               onChange={(event) => setSelectedPackageId(event.target.value)}
-              style={{ flex: 1, padding: '0.45rem 0.6rem', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12.5px' }}
+              style={{ flex: 1, minWidth: '160px', padding: '0.45rem 0.6rem', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12.5px' }}
             >
               <option value="">Add a package...</option>
               {packages
@@ -376,6 +393,25 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             >
               Add Package
             </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: 'auto' }}>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: '#374151' }}>Apply GST:</span>
+              <button
+                type="button"
+                onClick={() => setDraftApplyGst(!draftApplyGst)}
+                style={{
+                  padding: '0.45rem 0.75rem',
+                  background: draftApplyGst ? '#16A34A' : '#4B5563',
+                  color: '#FFFFFF',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                {draftApplyGst ? 'GST: Enabled' : 'GST: Disabled'}
+              </button>
+            </div>
           </div>
         )}
 
@@ -415,7 +451,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                 <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>
                   {formatINR(item.taxableAmount)}
                 </td>
-                <td style={{ padding: '8px', textAlign: 'center' }}>{item.gstRate}%</td>
+                <td style={{ padding: '8px', textAlign: 'center' }}>{invoice.applyGst !== false ? `${item.gstRate}%` : '—'}</td>
                 <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>
                   {formatINR(item.lineTotal)}
                 </td>
@@ -447,23 +483,25 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                 <span style={{ fontWeight: 600 }}>- {formatINR(invoice.documentDiscountAmount)}</span>
               </div>
             )}
-            {!invoice.isInterState ? (
-              <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
-                  <span>CGST (9%):</span>
-                  <span>{formatINR(invoice.cgstAmount)}</span>
+            {invoice.applyGst !== false ? (
+              !invoice.isInterState ? (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
+                    <span>CGST (9%):</span>
+                    <span>{formatINR(invoice.cgstAmount)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
+                    <span>SGST (9%):</span>
+                    <span>{formatINR(invoice.sgstAmount)}</span>
+                  </div>
+                </>
+              ) : (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2563EB' }}>
+                  <span>IGST (18%):</span>
+                  <span>{formatINR(invoice.igstAmount)}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
-                  <span>SGST (9%):</span>
-                  <span>{formatINR(invoice.sgstAmount)}</span>
-                </div>
-              </>
-            ) : (
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2563EB' }}>
-                <span>IGST (18%):</span>
-                <span>{formatINR(invoice.igstAmount)}</span>
-              </div>
-            )}
+              )
+            ) : null}
             <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #171717', paddingTop: '6px', marginTop: '4px' }}>
               <span style={{ fontWeight: 800 }}>Invoice Total:</span>
               <span style={{ fontWeight: 800, fontSize: '16px' }}>{formatINR(invoice.grandTotal)}</span>
@@ -599,7 +637,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         <form onSubmit={handleRecordPayment} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
             <label style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>Payment Amount (₹) *</label>
-            <input 
+            <input
               type="number"
               required
               max={invoice.balanceDue}
@@ -612,7 +650,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div>
               <label style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>Payment Date</label>
-              <input 
+              <input
                 type="date"
                 value={payDate}
                 onChange={(e) => setPayDate(e.target.value)}
@@ -621,7 +659,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             </div>
             <div>
               <label style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>Payment Mode</label>
-              <select 
+              <select
                 value={payMode}
                 onChange={(e) => setPayMode(e.target.value as any)}
                 style={{ width: '100%', padding: '0.5rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '4px' }}
@@ -636,7 +674,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
           <div>
             <label style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>UTR / Reference Number</label>
-            <input 
+            <input
               type="text"
               placeholder="e.g. HDFC882910298"
               value={payRef}
@@ -646,15 +684,15 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem', borderTop: '1px solid #E5E7EB', paddingTop: '1rem' }}>
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={() => setShowPayModal(false)}
               style={{ padding: '0.5rem 1rem', border: '1px solid #E5E7EB', borderRadius: '4px', background: '#FFFFFF' }}
             >
               Cancel
             </button>
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               style={{ padding: '0.5rem 1.25rem', background: '#15803D', color: '#FFFFFF', borderRadius: '4px', fontWeight: 600 }}
             >
               Confirm Settlement
@@ -715,7 +753,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
           <div>
             <label style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>Bank Name (Optional)</label>
-            <input 
+            <input
               type="text"
               placeholder="e.g. HDFC Bank Ltd"
               value={editBankName}
@@ -726,7 +764,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
           <div>
             <label style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>Account Holder Name (Optional)</label>
-            <input 
+            <input
               type="text"
               placeholder="e.g. HEXNS Mediaworks LLP"
               value={editAccountHolder}
@@ -738,7 +776,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div>
               <label style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>Account Number (Optional)</label>
-              <input 
+              <input
                 type="text"
                 placeholder="e.g. 50200084920194"
                 value={editAccountNumber}
@@ -748,7 +786,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             </div>
             <div>
               <label style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>IFSC Code (Optional)</label>
-              <input 
+              <input
                 type="text"
                 placeholder="e.g. HDFC0000084"
                 value={editIfsc}
@@ -760,7 +798,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
           <div>
             <label style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>UPI ID (Optional)</label>
-            <input 
+            <input
               type="text"
               placeholder="e.g. hexnsmediaworks@hdfcbank"
               value={editUpiVpa}
@@ -770,15 +808,15 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem', borderTop: '1px solid #E5E7EB', paddingTop: '1rem' }}>
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={() => setShowEditBankModal(false)}
               style={{ padding: '0.5rem 1rem', border: '1px solid #E5E7EB', borderRadius: '4px', background: '#FFFFFF' }}
             >
               Cancel
             </button>
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={isSavingBank}
               style={{ padding: '0.5rem 1.25rem', background: '#171717', color: '#FFFFFF', borderRadius: '4px', fontWeight: 600 }}
             >

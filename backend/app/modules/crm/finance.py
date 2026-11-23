@@ -185,6 +185,7 @@ def apply_document_totals(
     discount_type: str,
     discount_value: Decimal,
     inter_state: bool,
+    apply_gst: bool = True,
 ) -> dict[str, Decimal]:
     base = values["taxable_before_document_discount"]
     if discount_value < Decimal("0"):
@@ -212,15 +213,19 @@ def apply_document_totals(
             money(document_discount * original_taxable / base) if base else Decimal("0")
         )
         adjusted_taxable = money(original_taxable - allocated_discount)
-        tax = money(adjusted_taxable * line.gst_rate / Decimal("100"))
+        if apply_gst:
+            tax = money(adjusted_taxable * line.gst_rate / Decimal("100"))
+        else:
+            tax = Decimal("0")
         line.taxable_amount = adjusted_taxable
         line.tax_amount = tax
         line.line_total = money(adjusted_taxable + tax)
-        if inter_state:
-            igst += tax
-        else:
-            cgst += money(tax / Decimal("2"))
-            sgst += tax - money(tax / Decimal("2"))
+        if apply_gst:
+            if inter_state:
+                igst += tax
+            else:
+                cgst += money(tax / Decimal("2"))
+                sgst += tax - money(tax / Decimal("2"))
 
     total_tax = cgst + sgst + igst
     return {

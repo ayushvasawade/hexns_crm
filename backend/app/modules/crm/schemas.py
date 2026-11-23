@@ -234,6 +234,7 @@ class DocumentBase(ApiSchema):
     due_date: date | None = None
     place_of_supply: str
     is_inter_state: bool = False
+    apply_gst: bool = True
     sales_executive: str = ""
     document_discount_type: str = "percentage"
     document_discount_value: Decimal = Field(default=Decimal("0"), ge=0)
@@ -269,6 +270,7 @@ class QuotationUpdate(ApiSchema):
     valid_until: date | None = None
     place_of_supply: str | None = None
     is_inter_state: bool | None = None
+    apply_gst: bool | None = None
     sales_executive: str | None = None
     document_discount_type: str | None = None
     document_discount_value: Decimal | None = Field(default=None, ge=0)
@@ -312,6 +314,7 @@ class QuotationResponse(ApiSchema):
     valid_until: date
     place_of_supply: str
     is_inter_state: bool
+    apply_gst: bool = True
     sales_executive: str
     line_items: list[LineItemResponse]
     document_discount_type: str
@@ -358,6 +361,7 @@ class InvoiceUpdate(ApiSchema):
     due_date: date | None = None
     place_of_supply: str | None = None
     is_inter_state: bool | None = None
+    apply_gst: bool | None = None
     document_discount_type: str | None = None
     document_discount_value: Decimal | None = Field(default=None, ge=0)
     notes: str | None = None
@@ -376,6 +380,7 @@ class InvoiceResponse(ApiSchema):
     due_date: date
     place_of_supply: str
     is_inter_state: bool
+    apply_gst: bool = True
     line_items: list[LineItemResponse]
     document_discount_type: str
     document_discount_value: Decimal
