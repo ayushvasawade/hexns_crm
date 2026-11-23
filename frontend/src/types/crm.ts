@@ -118,6 +118,9 @@ export interface DocumentLineItem {
   id: string;
   serviceId?: string;
   packageId?: string;
+  isOther?: boolean;
+  saveToCatalogue?: boolean;
+  isSavedToCatalogue?: boolean;
   serviceName: string;
   category?: string;
   description: string;

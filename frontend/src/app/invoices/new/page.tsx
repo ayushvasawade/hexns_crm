@@ -20,9 +20,41 @@ import { formatINR, formatDate, numberToWordsINR } from '../../../lib/formatters
 import { PricingSelector } from '../../../components/document/PricingSelector';
 import { ServiceAutocomplete } from '../../../components/document/ServiceAutocomplete';
 
+const SERVICE_CATEGORIES = [
+  'Other / Custom Services',
+  'Social Media Management',
+  'Reels & Video Content',
+  'Photography',
+  'Videography & Production',
+  'Video Editing',
+  'Graphic Design',
+  'Branding',
+  'Packaging & Product Design',
+  'Meta Ads / Performance Marketing',
+  'Google Ads',
+  'Content Writing',
+  'AI Services',
+  'Website & Digital',
+  'Marketing Strategy',
+  'Influencer & Creator Marketing',
+  'Events & Launches',
+];
+
+const BILLING_UNITS = [
+  'Per Deliverable',
+  'Per Month',
+  'Per Video',
+  'Per Hour',
+  'Per Post',
+  'Per Project',
+  'Per Unit',
+  'Per Day',
+  'Per Campaign',
+];
+
 export default function NewInvoicePage() {
   const router = useRouter();
-  const { clients, services, packages, quotations, settings, isLoading, addInvoice, addClient } = useCrm();
+  const { clients, services, packages, quotations, settings, isLoading, addInvoice, addClient, addService } = useCrm();
 
   const [selectedClientId, setSelectedClientId] = useState(clients[0]?.id || '');
   const [clientSearchTerm, setClientSearchTerm] = useState('');
@@ -228,6 +260,77 @@ export default function NewInvoicePage() {
     setLineItems(prev => [...prev, newItem]);
   };
 
+  const handleAddOtherService = (initialName = '') => {
+    const newItem: DocumentLineItem = {
+      id: `other-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      serviceId: '__OTHER__',
+      isOther: true,
+      saveToCatalogue: false,
+      isSavedToCatalogue: false,
+      serviceName: initialName,
+      category: 'Other / Custom Services',
+      description: '',
+      sacCode: '998311',
+      quantity: 1,
+      billingUnit: 'Per Deliverable',
+      minPrice: 0,
+      defaultPrice: 0,
+      maxPrice: 0,
+      selectedTier: 'CUSTOM',
+      negotiatedUnitPrice: 0,
+      isBelowMinWarning: false,
+      itemDiscountType: 'fixed',
+      itemDiscountValue: 0,
+      itemDiscountAmount: 0,
+      lineSubtotal: 0,
+      taxableAmount: 0,
+      gstRate: 18,
+      taxAmount: 0,
+      lineTotal: 0
+    };
+    setLineItems(prev => [...prev, newItem]);
+  };
+
+  const [savingServiceId, setSavingServiceId] = useState<string | null>(null);
+
+  const handleSaveLineItemToCatalogue = async (index: number) => {
+    const item = lineItems[index];
+    if (!item) return;
+    if (!item.serviceName.trim()) {
+      alert("Please enter a service name before saving to the catalogue.");
+      return;
+    }
+    try {
+      setSavingServiceId(item.id);
+      const created = await addService({
+        serviceName: item.serviceName.trim(),
+        category: item.category || 'Other / Custom Services',
+        description: item.description || '',
+        billingUnit: item.billingUnit || 'Per Deliverable',
+        sacCode: item.sacCode || '998311',
+        minPrice: item.negotiatedUnitPrice > 0 ? item.negotiatedUnitPrice : 0,
+        defaultPrice: item.negotiatedUnitPrice > 0 ? item.negotiatedUnitPrice : 0,
+        maxPrice: item.negotiatedUnitPrice > 0 ? Math.round(item.negotiatedUnitPrice * 1.5) : 0,
+        internalCostPrice: 0,
+        gstRate: item.gstRate || 18,
+        status: 'Active',
+      });
+
+      setLineItems(prev => prev.map((it, i) => i === index ? {
+        ...it,
+        serviceId: created.id,
+        isOther: false,
+        saveToCatalogue: false,
+        isSavedToCatalogue: true
+      } : it));
+      alert(`Service "${created.serviceName}" has been added to your service catalogue!`);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to save service to catalogue');
+    } finally {
+      setSavingServiceId(null);
+    }
+  };
+
   const handleAddService = (serviceId: string) => {
     const service = services.find(item => String(item.id) === String(serviceId));
     if (!service) return;
@@ -249,6 +352,26 @@ export default function NewInvoicePage() {
   };
 
   const handleServiceChange = (index: number, serviceId: string) => {
+    if (serviceId === '__OTHER__') {
+      setLineItems(prev => prev.map((item, i) => {
+        if (i !== index) return item;
+        return {
+          ...item,
+          serviceId: '__OTHER__',
+          isOther: true,
+          saveToCatalogue: false,
+          isSavedToCatalogue: false,
+          category: item.category || 'Other / Custom Services',
+          billingUnit: item.billingUnit || 'Per Deliverable',
+          minPrice: 0,
+          defaultPrice: 0,
+          maxPrice: 0,
+          selectedTier: 'CUSTOM',
+        };
+      }));
+      return;
+    }
+
     const service = services.find(item => item.id === serviceId);
     if (!service) return;
 
@@ -262,6 +385,9 @@ export default function NewInvoicePage() {
       return {
         ...item,
         serviceId: service.id,
+        isOther: false,
+        saveToCatalogue: false,
+        isSavedToCatalogue: false,
         serviceName: service.serviceName,
         category: service.category,
         description: service.description,
@@ -414,6 +540,38 @@ export default function NewInvoicePage() {
     }
 
     try {
+      // Auto-save any custom line items marked with saveToCatalogue
+      const processedLines = [...lineItems];
+      for (let i = 0; i < processedLines.length; i++) {
+        const item = processedLines[i];
+        if (item.saveToCatalogue && !item.isSavedToCatalogue && item.serviceName.trim()) {
+          try {
+            const created = await addService({
+              serviceName: item.serviceName.trim(),
+              category: item.category || 'Other / Custom Services',
+              description: item.description || '',
+              billingUnit: item.billingUnit || 'Per Deliverable',
+              sacCode: item.sacCode || '998311',
+              minPrice: item.negotiatedUnitPrice > 0 ? item.negotiatedUnitPrice : 0,
+              defaultPrice: item.negotiatedUnitPrice > 0 ? item.negotiatedUnitPrice : 0,
+              maxPrice: item.negotiatedUnitPrice > 0 ? Math.round(item.negotiatedUnitPrice * 1.5) : 0,
+              internalCostPrice: 0,
+              gstRate: item.gstRate || 18,
+              status: 'Active',
+            });
+            processedLines[i] = {
+              ...item,
+              serviceId: created.id,
+              isOther: false,
+              saveToCatalogue: false,
+              isSavedToCatalogue: true
+            };
+          } catch (saveErr) {
+            console.error('Failed to auto-save custom service:', saveErr);
+          }
+        }
+      }
+
       const newInv = await addInvoice({
         invoiceNumber,
         quotationId: selectedQuoteId || undefined,
@@ -425,7 +583,7 @@ export default function NewInvoicePage() {
         placeOfSupply: clientToUse.placeOfSupply,
         isInterState: clientToUse.stateCode !== '27',
         applyGst,
-        lineItems,
+        lineItems: processedLines,
         documentDiscountType: discountType || 'percentage',
         documentDiscountValue: discountType ? discountValue : 0,
         totalLineSubtotal: subtotal,
@@ -610,23 +768,46 @@ export default function NewInvoicePage() {
 
         {/* Deliverables Section */}
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
             <span style={{ fontSize: '13px', fontWeight: 700, color: '#171717', textTransform: 'uppercase' }}>
               Invoice Line Deliverables
             </span>
-            <button 
-              type="button" 
-              onClick={handleAddLine}
-              style={{ padding: '0.35rem 0.75rem', background: '#F3F4F6', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12px', fontWeight: 600 }}
-            >
-              + Add Line Item
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <button 
+                type="button" 
+                onClick={() => handleAddOtherService()}
+                style={{
+                  padding: '0.35rem 0.75rem',
+                  background: '#EFF6FF',
+                  border: '1px solid #BFDBFE',
+                  color: '#1D4ED8',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                <Plus size={13} />
+                <span>+ Add Other / Custom Service</span>
+              </button>
+              <button 
+                type="button" 
+                onClick={handleAddLine}
+                style={{ padding: '0.35rem 0.75rem', background: '#F3F4F6', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                + Add Line Item
+              </button>
+            </div>
           </div>
           <div style={{ marginBottom: '0.5rem' }}>
             <ServiceAutocomplete
               services={services}
               isLoading={isLoading}
               onSelect={(service) => handleAddService(service.id)}
+              onSelectOther={(customName) => handleAddOtherService(customName)}
             />
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
@@ -668,6 +849,122 @@ export default function NewInvoicePage() {
                           <div style={{ marginTop: '3px', fontSize: '11.5px', color: '#737373' }}>{item.description}</div>
                         )}
                       </>
+                    ) : (item.isOther || item.serviceId === '__OTHER__') ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#1D4ED8', backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '4px', padding: '1px 6px' }}>
+                            ✨ Other / Custom Service
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLineItems(prev => prev.map((it, i) => i === idx ? { ...it, isOther: false, serviceId: '' } : it));
+                            }}
+                            style={{ fontSize: '11px', color: '#6B7280', textDecoration: 'underline', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                          >
+                            Select from catalogue instead
+                          </button>
+                        </div>
+
+                        <div>
+                          <input
+                            type="text"
+                            placeholder="Enter service name (e.g. Influencer Collaboration Shoot) *"
+                            value={item.serviceName}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setLineItems(prev => prev.map((it, i) => i === idx ? { ...it, serviceName: val } : it));
+                            }}
+                            style={{ width: '100%', padding: '5px 8px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12.5px', fontWeight: 600 }}
+                          />
+                        </div>
+
+                        <div>
+                          <input
+                            type="text"
+                            placeholder="Deliverable description or scope notes (optional)"
+                            value={item.description || ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setLineItems(prev => prev.map((it, i) => i === idx ? { ...it, description: val } : it));
+                            }}
+                            style={{ width: '100%', padding: '4px 8px', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '11.5px', color: '#4B5563' }}
+                          />
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '10.5px', color: '#6B7280', marginBottom: '2px' }}>Category</label>
+                            <select
+                              value={item.category || 'Other / Custom Services'}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setLineItems(prev => prev.map((it, i) => i === idx ? { ...it, category: val } : it));
+                              }}
+                              style={{ width: '100%', padding: '3px 6px', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '11.5px' }}
+                            >
+                              {SERVICE_CATEGORIES.map(cat => (
+                                <option key={cat} value={cat}>{cat}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label style={{ display: 'block', fontSize: '10.5px', color: '#6B7280', marginBottom: '2px' }}>Billing Unit</label>
+                            <select
+                              value={item.billingUnit || 'Per Deliverable'}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setLineItems(prev => prev.map((it, i) => i === idx ? { ...it, billingUnit: val } : it));
+                              }}
+                              style={{ width: '100%', padding: '3px 6px', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '11.5px' }}
+                            >
+                              {BILLING_UNITS.map(unit => (
+                                <option key={unit} value={unit}>{unit}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', paddingTop: '2px' }}>
+                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11.5px', color: '#374151', cursor: 'pointer' }}>
+                            <input
+                              type="checkbox"
+                              checked={Boolean(item.saveToCatalogue)}
+                              disabled={item.isSavedToCatalogue}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setLineItems(prev => prev.map((it, i) => i === idx ? { ...it, saveToCatalogue: checked } : it));
+                              }}
+                            />
+                            <span>Save to service catalogue</span>
+                          </label>
+                          {item.isSavedToCatalogue ? (
+                            <span style={{ fontSize: '11px', color: '#16A34A', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
+                              <Check size={12} /> Saved in catalogue
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={savingServiceId === item.id || !item.serviceName.trim()}
+                              onClick={() => handleSaveLineItemToCatalogue(idx)}
+                              style={{
+                                padding: '2px 8px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                backgroundColor: '#EFF6FF',
+                                border: '1px solid #BFDBFE',
+                                borderRadius: '4px',
+                                color: '#1D4ED8',
+                                cursor: item.serviceName.trim() ? 'pointer' : 'not-allowed',
+                                opacity: item.serviceName.trim() ? 1 : 0.6
+                              }}
+                            >
+                              {savingServiceId === item.id ? 'Saving...' : '+ Save to Catalogue Now'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     ) : (
                       <select
                         value={item.serviceId || ''}
@@ -675,6 +972,7 @@ export default function NewInvoicePage() {
                         style={{ width: '100%', padding: '4px 6px', border: '1px solid #E5E7EB', borderRadius: '4px', fontWeight: 600 }}
                       >
                         <option value="">-- Choose a service --</option>
+                        <option value="__OTHER__">✨ Other / Custom Service (Not in list)</option>
                         {services.map(service => {
                           const isZeroRate = service.defaultPrice === 0 && service.minPrice === 0;
                           return (
@@ -685,16 +983,14 @@ export default function NewInvoicePage() {
                         })}
                       </select>
                     )}
-                    {item.billingUnit && <div style={{ fontSize: '11px', color: '#737373', marginTop: '3px' }}>{item.billingUnit}</div>}
+                    {item.billingUnit && !item.isOther && item.serviceId !== '__OTHER__' && (
+                      <div style={{ fontSize: '11px', color: '#737373', marginTop: '3px' }}>{item.billingUnit}</div>
+                    )}
 
-                    {item.defaultPrice === 0 && item.minPrice === 0 && (
-
+                    {!item.isOther && item.serviceId !== '__OTHER__' && item.defaultPrice === 0 && item.minPrice === 0 && (
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', marginTop: '3px', padding: '1px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, backgroundColor: '#FEF3C7', color: '#B45309', border: '1px solid #FCD34D' }}>
-
                         Custom rate required
-
                       </div>
-
                     )}
                   </td>
                   <td style={{ padding: '8px', width: '90px' }}>
@@ -733,15 +1029,35 @@ export default function NewInvoicePage() {
                     />
                   </td>
                   <td style={{ padding: '8px', width: '140px', textAlign: 'right' }}>
-                    <PricingSelector
-                      item={item}
-                      onSelect={(tier) => {
-                        const price = tier === 'MIN' ? item.minPrice : tier === 'DEFAULT' ? item.defaultPrice : item.negotiatedUnitPrice;
-                        handlePriceChange(idx, price);
-                        setLineItems(prev => prev.map((it, i) => i === idx ? { ...it, selectedTier: tier } : it));
-                      }}
-                      onCustomChange={(value) => handlePriceChange(idx, value)}
-                    />
+                    {(item.isOther || item.serviceId === '__OTHER__') ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <span style={{ fontSize: '12px', color: '#6B7280' }}>₹</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={item.negotiatedUnitPrice || ''}
+                            placeholder="0"
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              handlePriceChange(idx, val);
+                            }}
+                            style={{ width: '90px', padding: '4px 6px', border: '1px solid #D1D5DB', borderRadius: '4px', textAlign: 'right', fontWeight: 700 }}
+                          />
+                        </div>
+                        <span style={{ fontSize: '10.5px', color: '#6B7280' }}>Rate per {item.billingUnit || 'item'}</span>
+                      </div>
+                    ) : (
+                      <PricingSelector
+                        item={item}
+                        onSelect={(tier) => {
+                          const price = tier === 'MIN' ? item.minPrice : tier === 'DEFAULT' ? item.defaultPrice : item.negotiatedUnitPrice;
+                          handlePriceChange(idx, price);
+                          setLineItems(prev => prev.map((it, i) => i === idx ? { ...it, selectedTier: tier } : it));
+                        }}
+                        onCustomChange={(value) => handlePriceChange(idx, value)}
+                      />
+                    )}
                   </td>
                   <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700 }}>
                     {formatINR(item.taxableAmount)}

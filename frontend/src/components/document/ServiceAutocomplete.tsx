@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Search } from 'lucide-react';
+import { ChevronDown, Plus, Search } from 'lucide-react';
 import { ServiceItem } from '../../types/crm';
 import { formatINR } from '../../lib/formatters';
 
 interface ServiceAutocompleteProps {
   services: ServiceItem[];
   onSelect: (service: ServiceItem) => void;
+  onSelectOther?: (customName?: string) => void;
   isLoading?: boolean;
   placeholder?: string;
 }
@@ -15,6 +16,7 @@ interface ServiceAutocompleteProps {
 export function ServiceAutocomplete({
   services,
   onSelect,
+  onSelectOther,
   isLoading = false,
   placeholder = 'Search services by name, category or keyword...',
 }: ServiceAutocompleteProps) {
@@ -140,47 +142,139 @@ export function ServiceAutocomplete({
           {isLoading ? (
             <div style={{ padding: '0.75rem', color: '#737373', fontSize: '12px' }}>Loading services...</div>
           ) : services.length === 0 ? (
-            <div style={{ padding: '0.75rem', color: '#B45309', fontSize: '12px' }}>Service catalogue is unavailable.</div>
-          ) : filteredServices.length === 0 ? (
-            <div style={{ padding: '0.75rem', color: '#737373', fontSize: '12px' }}>No services match “{query}”.</div>
-          ) : (
-            filteredServices.map((service, index) => {
-              const isZeroRate = service.defaultPrice === 0 && service.minPrice === 0;
-              return (
+            <div style={{ padding: '0.75rem', color: '#B45309', fontSize: '12px' }}>
+              <div>Service catalogue is unavailable.</div>
+              {onSelectOther && (
                 <button
                   type="button"
-                  key={service.id}
-                  role="option"
-                  aria-selected={index === highlightedIndex}
                   onMouseDown={event => event.preventDefault()}
-                  onClick={() => selectService(service)}
-                  onMouseEnter={() => setHighlightedIndex(index)}
+                  onClick={() => {
+                    onSelectOther(query.trim());
+                    setQuery('');
+                    setIsOpen(false);
+                  }}
                   style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'minmax(0, 1fr) auto',
-                    width: '100%',
-                    gap: '0.75rem',
-                    padding: '0.6rem 0.7rem',
-                    textAlign: 'left',
-                    background: index === highlightedIndex ? '#EFF6FF' : '#FFFFFF',
-                    borderBottom: '1px solid #F3F4F6',
-                    color: '#171717',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    marginTop: '0.5rem',
+                    padding: '0.45rem 0.65rem',
+                    backgroundColor: '#EFF6FF',
+                    border: '1px solid #BFDBFE',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: '#1D4ED8',
+                    cursor: 'pointer'
                   }}
                 >
-                  <span style={{ minWidth: 0 }}>
-                    <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '12.5px', fontWeight: 650 }}>
-                      {service.serviceName}
+                  <Plus size={13} />
+                  <span>+ Add as Other / Custom Service</span>
+                </button>
+              )}
+            </div>
+          ) : filteredServices.length === 0 ? (
+            <div style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <div style={{ color: '#737373', fontSize: '12px' }}>No catalogue services match “{query}”.</div>
+              {onSelectOther && (
+                <button
+                  type="button"
+                  onMouseDown={event => event.preventDefault()}
+                  onClick={() => {
+                    onSelectOther(query.trim());
+                    setQuery('');
+                    setIsOpen(false);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '0.5rem 0.75rem',
+                    backgroundColor: '#EFF6FF',
+                    border: '1px dashed #2563EB',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: '#1D4ED8',
+                    cursor: 'pointer',
+                    textAlign: 'left'
+                  }}
+                >
+                  <Plus size={14} color="#2563EB" />
+                  <span>Add “{query.trim() || 'Custom Service'}” as Other / Custom Service</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <>
+              {filteredServices.map((service, index) => {
+                const isZeroRate = service.defaultPrice === 0 && service.minPrice === 0;
+                return (
+                  <button
+                    type="button"
+                    key={service.id}
+                    role="option"
+                    aria-selected={index === highlightedIndex}
+                    onMouseDown={event => event.preventDefault()}
+                    onClick={() => selectService(service)}
+                    onMouseEnter={() => setHighlightedIndex(index)}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'minmax(0, 1fr) auto',
+                      width: '100%',
+                      gap: '0.75rem',
+                      padding: '0.6rem 0.7rem',
+                      textAlign: 'left',
+                      background: index === highlightedIndex ? '#EFF6FF' : '#FFFFFF',
+                      borderBottom: '1px solid #F3F4F6',
+                      color: '#171717',
+                    }}
+                  >
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '12.5px', fontWeight: 650 }}>
+                        {service.serviceName}
+                      </span>
+                      <span style={{ display: 'block', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#737373', fontSize: '11px' }}>
+                        {service.category}{service.groupCategory ? ` · ${service.groupCategory}` : ''}
+                      </span>
                     </span>
-                    <span style={{ display: 'block', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#737373', fontSize: '11px' }}>
-                      {service.category}{service.groupCategory ? ` · ${service.groupCategory}` : ''}
+                    <span style={{ alignSelf: 'center', whiteSpace: 'nowrap', color: isZeroRate ? '#B45309' : '#171717', fontSize: '12px', fontWeight: 650 }}>
+                      {isZeroRate ? 'Custom rate' : formatINR(service.defaultPrice)}
                     </span>
-                  </span>
-                  <span style={{ alignSelf: 'center', whiteSpace: 'nowrap', color: isZeroRate ? '#B45309' : '#171717', fontSize: '12px', fontWeight: 650 }}>
-                    {isZeroRate ? 'Custom rate' : formatINR(service.defaultPrice)}
+                  </button>
+                );
+              })}
+              {onSelectOther && (
+                <button
+                  type="button"
+                  onMouseDown={event => event.preventDefault()}
+                  onClick={() => {
+                    onSelectOther(query.trim());
+                    setQuery('');
+                    setIsOpen(false);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    width: '100%',
+                    padding: '0.65rem 0.75rem',
+                    textAlign: 'left',
+                    background: '#F9FAFB',
+                    borderTop: '1px solid #E5E7EB',
+                    color: '#2563EB',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Plus size={14} />
+                  <span>
+                    {query.trim() ? `+ Add “${query.trim()}” as Other / Custom Service` : '+ Add Other / Custom Service (Not in list)'}
                   </span>
                 </button>
-              );
-            })
+              )}
+            </>
           )}
         </div>
       )}

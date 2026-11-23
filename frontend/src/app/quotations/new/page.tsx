@@ -60,13 +60,43 @@ import { LetterheadLayout } from '../../../components/document/LetterheadLayout'
 import { PricingSelector } from '../../../components/document/PricingSelector';
 import { ServiceAutocomplete } from '../../../components/document/ServiceAutocomplete';
 
+const SERVICE_CATEGORIES = [
+  'Other / Custom Services',
+  'Social Media Management',
+  'Reels & Video Content',
+  'Photography',
+  'Videography & Production',
+  'Video Editing',
+  'Graphic Design',
+  'Branding',
+  'Packaging & Product Design',
+  'Meta Ads / Performance Marketing',
+  'Google Ads',
+  'Content Writing',
+  'AI Services',
+  'Website & Digital',
+  'Marketing Strategy',
+  'Influencer & Creator Marketing',
+  'Events & Launches',
+];
 
+const BILLING_UNITS = [
+  'Per Deliverable',
+  'Per Month',
+  'Per Video',
+  'Per Hour',
+  'Per Post',
+  'Per Project',
+  'Per Unit',
+  'Per Day',
+  'Per Campaign',
+];
 
 export default function QuotationBuilderPage() {
 
   const router = useRouter();
 
-  const { clients, services, packages, settings, isLoading, addQuotation, addClient } = useCrm();
+  const { clients, services, packages, settings, isLoading, addQuotation, addClient, addService } = useCrm();
 
 
 
@@ -508,7 +538,77 @@ export default function QuotationBuilderPage() {
 
 
 
-  // Handle adding custom item
+  // Handle adding custom / other service
+  const [savingServiceId, setSavingServiceId] = useState<string | null>(null);
+
+  const handleAddOtherService = (initialName = '') => {
+    const newItem: DocumentLineItem = {
+      id: `li-other-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      serviceId: '__OTHER__',
+      isOther: true,
+      saveToCatalogue: false,
+      isSavedToCatalogue: false,
+      serviceName: initialName,
+      category: 'Other / Custom Services',
+      description: '',
+      sacCode: '998311',
+      quantity: 1,
+      billingUnit: 'Per Deliverable',
+      minPrice: 0,
+      defaultPrice: 0,
+      maxPrice: 0,
+      selectedTier: 'CUSTOM',
+      negotiatedUnitPrice: 0,
+      isBelowMinWarning: false,
+      itemDiscountType: 'fixed',
+      itemDiscountValue: 0,
+      itemDiscountAmount: 0,
+      lineSubtotal: 0,
+      taxableAmount: 0,
+      gstRate: 18,
+      taxAmount: 0,
+      lineTotal: 0
+    };
+    setLineItems(prev => [...prev, newItem]);
+  };
+
+  const handleSaveLineItemToCatalogue = async (index: number) => {
+    const item = lineItems[index];
+    if (!item) return;
+    if (!item.serviceName.trim()) {
+      alert("Please enter a service name before saving to the catalogue.");
+      return;
+    }
+    try {
+      setSavingServiceId(item.id);
+      const created = await addService({
+        serviceName: item.serviceName.trim(),
+        category: item.category || 'Other / Custom Services',
+        description: item.description || '',
+        billingUnit: item.billingUnit || 'Per Deliverable',
+        sacCode: item.sacCode || '998311',
+        minPrice: item.negotiatedUnitPrice > 0 ? item.negotiatedUnitPrice : 0,
+        defaultPrice: item.negotiatedUnitPrice > 0 ? item.negotiatedUnitPrice : 0,
+        maxPrice: item.negotiatedUnitPrice > 0 ? Math.round(item.negotiatedUnitPrice * 1.5) : 0,
+        internalCostPrice: 0,
+        gstRate: item.gstRate || 18,
+        status: 'Active',
+      });
+
+      setLineItems(prev => prev.map((it, i) => i === index ? {
+        ...it,
+        serviceId: created.id,
+        isOther: false,
+        saveToCatalogue: false,
+        isSavedToCatalogue: true
+      } : it));
+      alert(`Service "${created.serviceName}" has been added to your service catalogue!`);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to save service to catalogue');
+    } finally {
+      setSavingServiceId(null);
+    }
+  };
 
   const handleAddCustomItem = () => {
 
@@ -963,6 +1063,38 @@ export default function QuotationBuilderPage() {
 
     try {
 
+      // Auto-save any custom line items marked with saveToCatalogue
+      const processedLines = [...lineItems];
+      for (let i = 0; i < processedLines.length; i++) {
+        const item = processedLines[i];
+        if (item.saveToCatalogue && !item.isSavedToCatalogue && item.serviceName.trim()) {
+          try {
+            const created = await addService({
+              serviceName: item.serviceName.trim(),
+              category: item.category || 'Other / Custom Services',
+              description: item.description || '',
+              billingUnit: item.billingUnit || 'Per Deliverable',
+              sacCode: item.sacCode || '998311',
+              minPrice: item.negotiatedUnitPrice > 0 ? item.negotiatedUnitPrice : 0,
+              defaultPrice: item.negotiatedUnitPrice > 0 ? item.negotiatedUnitPrice : 0,
+              maxPrice: item.negotiatedUnitPrice > 0 ? Math.round(item.negotiatedUnitPrice * 1.5) : 0,
+              internalCostPrice: 0,
+              gstRate: item.gstRate || 18,
+              status: 'Active',
+            });
+            processedLines[i] = {
+              ...item,
+              serviceId: created.id,
+              isOther: false,
+              saveToCatalogue: false,
+              isSavedToCatalogue: true
+            };
+          } catch (saveErr) {
+            console.error('Failed to auto-save custom service to catalogue:', saveErr);
+          }
+        }
+      }
+
       const saved = await addQuotation({
 
         quotationNumber,
@@ -985,7 +1117,7 @@ export default function QuotationBuilderPage() {
 
         salesExecutive,
 
-        lineItems,
+        lineItems: processedLines,
 
         documentDiscountType: documentDiscountType || 'percentage',
 
@@ -2223,7 +2355,7 @@ export default function QuotationBuilderPage() {
 
             display: 'grid',
 
-            gridTemplateColumns: '2fr 1fr auto',
+            gridTemplateColumns: '2fr 1fr auto auto',
 
             gap: '0.75rem',
 
@@ -2248,6 +2380,7 @@ export default function QuotationBuilderPage() {
                 services={services}
                 isLoading={isLoading}
                 onSelect={(service) => handleAddServiceItem(service.id)}
+                onSelectOther={(customName) => handleAddOtherService(customName)}
               />
             </div>
 
@@ -2291,11 +2424,42 @@ export default function QuotationBuilderPage() {
 
                 onClick={handleAddPackageItem}
 
-                style={{ padding: '0.5rem 0.85rem', background: '#2563EB', color: '#FFFFFF', borderRadius: '4px', fontSize: '12.5px', fontWeight: 600 }}
+                style={{ padding: '0.5rem 0.85rem', background: '#2563EB', color: '#FFFFFF', borderRadius: '4px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' }}
 
               >
 
                 + Add Package
+
+              </button>
+
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
+
+              <button 
+
+                type="button" 
+
+                onClick={() => handleAddOtherService()}
+
+                style={{
+                  padding: '0.5rem 0.85rem',
+                  background: '#EFF6FF',
+                  border: '1px solid #BFDBFE',
+                  color: '#1D4ED8',
+                  borderRadius: '4px',
+                  fontSize: '12.5px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  cursor: 'pointer'
+                }}
+
+              >
+
+                <Plus size={14} />
+                <span>+ Add Other Service</span>
 
               </button>
 
@@ -2337,26 +2501,149 @@ export default function QuotationBuilderPage() {
 
                 {/* Header row */}
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
 
-                  <div>
+                  {(item.isOther || item.serviceId === '__OTHER__') ? (
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#1D4ED8', backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '4px', padding: '1px 6px' }}>
+                          ✨ Other / Custom Service
+                        </span>
+                        <span style={{ fontSize: '11px', color: '#6B7280' }}>SAC {item.sacCode}</span>
+                      </div>
 
-                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#2563EB', textTransform: 'uppercase' }}>
+                      <div>
+                        <input
+                          type="text"
+                          placeholder="Enter service name (e.g. Influencer Collaboration Shoot) *"
+                          value={item.serviceName}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setLineItems(prev => prev.map((it, i) => i === idx ? { ...it, serviceName: val } : it));
+                          }}
+                          style={{ width: '100%', padding: '6px 10px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '14px', fontWeight: 700 }}
+                        />
+                      </div>
 
-                      {item.category || 'Service'} • SAC {item.sacCode}
+                      <div>
+                        <input
+                          type="text"
+                          placeholder="Deliverable description or scope notes (optional)"
+                          value={item.description || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setLineItems(prev => prev.map((it, i) => i === idx ? { ...it, description: val } : it));
+                          }}
+                          style={{ width: '100%', padding: '5px 8px', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12px', color: '#4B5563' }}
+                        />
+                      </div>
 
-                    </span>
-                    {item.defaultPrice === 0 && item.minPrice === 0 && (
-                      <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 600, color: '#B45309', backgroundColor: '#FEF3C7', padding: '1px 6px', borderRadius: '4px', border: '1px solid #FCD34D' }}>
-                        Custom rate required
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11px', color: '#6B7280', marginBottom: '2px', fontWeight: 600 }}>Category</label>
+                          <select
+                            value={item.category || 'Other / Custom Services'}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setLineItems(prev => prev.map((it, i) => i === idx ? { ...it, category: val } : it));
+                            }}
+                            style={{ width: '100%', padding: '4px 6px', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12px' }}
+                          >
+                            {SERVICE_CATEGORIES.map(cat => (
+                              <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11px', color: '#6B7280', marginBottom: '2px', fontWeight: 600 }}>Billing Unit</label>
+                          <select
+                            value={item.billingUnit || 'Per Deliverable'}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setLineItems(prev => prev.map((it, i) => i === idx ? { ...it, billingUnit: val } : it));
+                            }}
+                            style={{ width: '100%', padding: '4px 6px', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12px' }}
+                          >
+                            {BILLING_UNITS.map(unit => (
+                              <option key={unit} value={unit}>{unit}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11px', color: '#6B7280', marginBottom: '2px', fontWeight: 600 }}>SAC Code</label>
+                          <input
+                            type="text"
+                            value={item.sacCode || '998311'}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setLineItems(prev => prev.map((it, i) => i === idx ? { ...it, sacCode: val } : it));
+                            }}
+                            style={{ width: '100%', padding: '4px 6px', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12px', fontFamily: 'monospace' }}
+                          />
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', paddingTop: '4px' }}>
+                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#374151', cursor: 'pointer', fontWeight: 500 }}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(item.saveToCatalogue)}
+                            disabled={item.isSavedToCatalogue}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setLineItems(prev => prev.map((it, i) => i === idx ? { ...it, saveToCatalogue: checked } : it));
+                            }}
+                          />
+                          <span>Save this service to service list (catalogue)</span>
+                        </label>
+                        {item.isSavedToCatalogue ? (
+                          <span style={{ fontSize: '11.5px', color: '#16A34A', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
+                            <Check size={13} /> Added to service catalogue
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={savingServiceId === item.id || !item.serviceName.trim()}
+                            onClick={() => handleSaveLineItemToCatalogue(idx)}
+                            style={{
+                              padding: '3px 9px',
+                              fontSize: '11.5px',
+                              fontWeight: 600,
+                              backgroundColor: '#EFF6FF',
+                              border: '1px solid #BFDBFE',
+                              borderRadius: '4px',
+                              color: '#1D4ED8',
+                              cursor: item.serviceName.trim() ? 'pointer' : 'not-allowed',
+                              opacity: item.serviceName.trim() ? 1 : 0.6
+                            }}
+                          >
+                            {savingServiceId === item.id ? 'Saving...' : '+ Save to Catalogue Now'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: '#2563EB', textTransform: 'uppercase' }}>
+
+                        {item.category || 'Service'} • SAC {item.sacCode}
+
                       </span>
-                    )}
+                      {item.defaultPrice === 0 && item.minPrice === 0 && (
+                        <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 600, color: '#B45309', backgroundColor: '#FEF3C7', padding: '1px 6px', borderRadius: '4px', border: '1px solid #FCD34D' }}>
+                          Custom rate required
+                        </span>
+                      )}
 
-                    <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#171717' }}>{item.serviceName}</h3>
+                      <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#171717' }}>{item.serviceName}</h3>
 
-                    <p style={{ fontSize: '12px', color: '#737373' }}>{item.description}</p>
+                      <p style={{ fontSize: '12px', color: '#737373' }}>{item.description}</p>
 
-                  </div>
+                    </div>
+                  )}
 
 
 
@@ -2416,11 +2703,38 @@ export default function QuotationBuilderPage() {
 
                 }}>
 
-                  <PricingSelector
-                    item={item}
-                    onSelect={(tier) => handleSelectTier(idx, tier)}
-                    onCustomChange={(value) => handleNegotiatedPriceChange(idx, value)}
-                  />
+                  {(item.isOther || item.serviceId === '__OTHER__') ? (
+                    <div>
+                      <label style={{ fontSize: '11px', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '3px' }}>
+                        Agreed Rate (₹) *
+                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#6B7280' }}>₹</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={item.negotiatedUnitPrice || ''}
+                          placeholder="0"
+                          onChange={(e) => handleNegotiatedPriceChange(idx, Number(e.target.value))}
+                          style={{
+                            width: '120px',
+                            padding: '4px 8px',
+                            border: item.negotiatedUnitPrice <= 0 ? '2px solid #F59E0B' : '1px solid #D1D5DB',
+                            borderRadius: '4px',
+                            fontWeight: 700,
+                            fontSize: '13px',
+                            backgroundColor: item.negotiatedUnitPrice <= 0 ? '#FFFBEB' : '#FFFFFF'
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <PricingSelector
+                      item={item}
+                      onSelect={(tier) => handleSelectTier(idx, tier)}
+                      onCustomChange={(value) => handleNegotiatedPriceChange(idx, value)}
+                    />
+                  )}
                   <div style={{ display: 'none' }}>
 
                     <label style={{ fontSize: '11px', fontWeight: 600, color: '#4B5563', display: 'block', marginBottom: '3px' }}>
