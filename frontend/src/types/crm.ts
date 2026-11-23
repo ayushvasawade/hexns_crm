@@ -192,6 +192,7 @@ export interface Invoice {
   projectTitle: string;
   invoiceDate: string;
   dueDate: string;
+  paymentTerms?: string;
   placeOfSupply: string;
   isInterState: boolean;
   applyGst: boolean;

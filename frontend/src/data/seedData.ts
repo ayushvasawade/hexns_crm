@@ -11,32 +11,32 @@ import {
 } from '../types/crm';
 
 export const INITIAL_COMPANY_SETTINGS: CompanySettings = {
-  legalEntityName: "HEXNS MEDIAWORKS LLP",
-  registeredAddress: "Unit 402, Trade Avenue, S.V. Road, Goregaon West",
-  city: "Mumbai",
+  legalEntityName: "Hexns Media",
+  registeredAddress: "1, 3rd Floor , Abhove Gadre Eye Care, New Shau Puri",
+  city: "Kolhapur",
   state: "Maharashtra",
   stateCode: "27",
-  pinCode: "400062",
-  gstin: "27AAQFH9842M1ZQ",
-  pan: "AAQFH9842M",
-  corporateEmail: "finance@hexnsmediaworks.com",
-  corporatePhone: "+91 98200 12345",
-  website: "www.hexnsmediaworks.com",
+  pinCode: "416001",
+  gstin: "27AASFH6542G1Z0",
+  pan: "AASFH6542G",
+  corporateEmail: "admin@hexnsmedia.com",
+  corporatePhone: "+91 90491 02142",
+  website: "www.hexnsmedia.com",
   bank: {
     bankName: "HDFC Bank Ltd",
-    accountHolder: "HEXNS MEDIAWORKS LLP",
+    accountHolder: "Hexns Media",
     accountNumber: "50200084920194",
     ifsc: "HDFC0000084",
-    branch: "Goregaon West Branch, Mumbai",
-    upiVpa: "hexnsmediaworks@hdfcbank"
+    branch: "Kolhapur Branch",
+    upiVpa: "admin@hexnsmedia.com"
   },
   defaultGstRate: 18,
   defaultValidityDays: 15,
-  defaultPaymentTerms: "50% Advance + 50% Before Delivery",
+  defaultPaymentTerms: "Net 15",
   quotationTerms: "1. Quotation valid for 15 days from date of issue.\n2. 50% advance payable upon sign-off, remaining 50% before final production delivery.\n3. Revisions exceeding agreed scope billed at standard rate card.\n4. GST charged extra as applicable.",
-  invoiceStatutoryNote: "Subject to Mumbai jurisdiction. Tax payable under reverse charge: No.",
+  invoiceStatutoryNote: "Subject to Kolhapur jurisdiction. Tax payable under reverse charge: No.",
   quotationPrefix: "HEX/26-27/Q-",
-  invoicePrefix: "HEX/26-27/INV-",
+  invoicePrefix: "HX-",
   paymentPrefix: "HEX/REC-"
 };
 

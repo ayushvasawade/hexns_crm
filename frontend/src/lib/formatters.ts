@@ -108,3 +108,95 @@ export function numberToWordsINR(amount: number): string {
 
   return (output.trim() + " Rupees Only").toUpperCase();
 }
+
+/**
+ * Format currency words in exact Indian Rupee Title Case (matching Zoho style):
+ * e.g. "Indian Rupee Twenty-One Thousand Two Hundred Forty Only"
+ */
+export function formatIndianRupeesInWords(amount: number): string {
+  if (isNaN(amount) || amount === 0) return "Indian Rupee Zero Only";
+
+  const ones = [
+    "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+    "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+    "Seventeen", "Eighteen", "Nineteen"
+  ];
+
+  const tens = [
+    "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"
+  ];
+
+  function convertTwoDigits(n: number): string {
+    if (n < 20) return ones[n];
+    const unit = n % 10;
+    return tens[Math.floor(n / 10)] + (unit ? " " + ones[unit] : "");
+  }
+
+  function convertThreeDigits(n: number): string {
+    const hundred = Math.floor(n / 100);
+    const rest = n % 100;
+    let res = "";
+    if (hundred > 0) {
+      res += ones[hundred] + " Hundred";
+      if (rest > 0) res += " ";
+    }
+    if (rest > 0) {
+      res += convertTwoDigits(rest);
+    }
+    return res;
+  }
+
+  const rounded = Math.round(Math.abs(amount));
+  let n = rounded;
+
+  let output = "";
+
+  const crore = Math.floor(n / 10000000);
+  n %= 10000000;
+
+  const lakh = Math.floor(n / 100000);
+  n %= 100000;
+
+  const thousand = Math.floor(n / 1000);
+  n %= 1000;
+
+  if (crore > 0) {
+    output += convertTwoDigits(crore) + " Crore ";
+  }
+
+  if (lakh > 0) {
+    output += convertTwoDigits(lakh) + " Lakh ";
+  }
+
+  if (thousand > 0) {
+    output += convertTwoDigits(thousand) + " Thousand ";
+  }
+
+  if (n > 0) {
+    output += convertThreeDigits(n) + " ";
+  }
+
+  return `Indian Rupee ${output.trim()} Only`;
+}
+
+export function formatDateDDMMYYYY(dateString: string): string {
+  if (!dateString) return '-';
+  try {
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return dateString;
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  } catch {
+    return dateString;
+  }
+}
+
+export function formatNumberWithDecimals(val: number | null | undefined): string {
+  if (val === null || val === undefined || isNaN(Number(val))) return "0.00";
+  return new Intl.NumberFormat('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(Number(val));
+}

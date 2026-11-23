@@ -2,23 +2,23 @@
 
 import React, { use, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Printer,
   CreditCard,
-  CheckCircle2,
-  FileText,
-  Clock,
-  AlertCircle,
   Download
 } from 'lucide-react';
 import { useCrm } from '../../../context/CrmContext';
-import { formatINR, formatDate, numberToWordsINR } from '../../../lib/formatters';
+import { 
+  formatINR, 
+  formatDate, 
+  formatDateDDMMYYYY, 
+  formatNumberWithDecimals, 
+  formatIndianRupeesInWords 
+} from '../../../lib/formatters';
 import { Badge } from '../../../components/ui/Badge';
 import { Modal } from '../../../components/ui/Modal';
 import { generateInvoicePDF } from '../../../lib/exportUtils';
-import { LetterheadLayout } from '../../../components/document/LetterheadLayout';
 import { PricingSelector } from '../../../components/document/PricingSelector';
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -319,50 +319,131 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      {/* A4 Letterhead Printable Tax Invoice */}
-      <LetterheadLayout>
-        {/* Document Header & Reference */}
-        <div className="print-avoid-break" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px solid #171717', paddingBottom: '0.85rem' }}>
+      {/* Printable Tax Invoice Container Styled Strictly After Hexns Media Reference (Image 1 & Image 2) */}
+      <div 
+        className="a4-document-container invoice-printable-sheet" 
+        style={{
+          backgroundColor: '#FFFFFF',
+          border: '1px solid #E2E8F0',
+          borderRadius: '6px',
+          boxShadow: '0 4px 14px rgba(0, 0, 0, 0.05)',
+          maxWidth: '840px',
+          margin: '0 auto',
+          overflow: 'hidden',
+          fontFamily: 'inherit',
+          color: '#171717',
+        }}
+      >
+        {/* IMAGE 1: Top Blue Header Block */}
+        <div style={{
+          backgroundColor: '#2B7DA8',
+          color: '#FFFFFF',
+          padding: '1.5rem 1.75rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: '1rem',
+          printColorAdjust: 'exact',
+          WebkitPrintColorAdjust: 'exact',
+        }}>
           <div>
-            <span style={{ fontSize: '18px', fontWeight: 800, color: '#171717', letterSpacing: '0.04em' }}>
+            <div style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
               {invoice.applyGst === false ? 'INVOICE' : 'TAX INVOICE'}
-            </span>
-            <div style={{ fontSize: '13.5px', fontWeight: 700, marginTop: '3px', fontFamily: 'monospace', color: '#2563EB' }}>
-              {invoice.invoiceNumber}
+            </div>
+            <div style={{ fontSize: '13px', opacity: 0.9, marginTop: '4px', fontFamily: 'monospace' }}>
+              #{invoice.invoiceNumber}
             </div>
             {invoice.quotationNumber && (
-              <div style={{ fontSize: '11.5px', color: '#2563EB', marginTop: '2px' }}>
-                Ref Quotation: {invoice.quotationNumber}
+              <div style={{ fontSize: '11px', opacity: 0.85, marginTop: '2px' }}>
+                Ref Quote: {invoice.quotationNumber}
               </div>
             )}
           </div>
-          <div style={{ textAlign: 'right', fontSize: '12px', color: '#4B5563', lineHeight: '1.5' }}>
-            <div>Invoice Date: <strong style={{ color: '#171717' }}>{formatDate(invoice.invoiceDate)}</strong></div>
-            <div>Payment Due: <strong style={{ color: '#171717' }}>{formatDate(invoice.dueDate)}</strong></div>
-            <div style={{ fontSize: '11px', color: '#737373' }}>Status: <strong>{invoice.status}</strong></div>
+
+          <div style={{ textAlign: 'right', fontSize: '12px', lineHeight: '1.45' }}>
+            <div style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '0.01em', marginBottom: '3px' }}>
+              Hexns Media
+            </div>
+            <div>1, 3rd Floor , Abhove Gadre Eye Care</div>
+            <div>New Shau Puri</div>
+            <div>Kolhapur Maharashtra 416001</div>
+            <div>India</div>
+            <div style={{ fontWeight: 700, marginTop: '4px', fontSize: '12.5px' }}>
+              GSTIN 27AASFH6542G1Z0
+            </div>
+            <div>admin@hexnsmedia.com</div>
           </div>
         </div>
 
-        {/* Billed To & Supply */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', fontSize: '13px' }}>
+        {/* IMAGE 2: Top Right Balance Due Banner */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          padding: '0.9rem 1.75rem 0.25rem 1.75rem',
+        }}>
+          <div style={{ color: '#2B7DA8', fontSize: '15.5px', fontWeight: 800, letterSpacing: '0.02em' }}>
+            BALANCE DUE {formatNumberWithDecimals(invoice.balanceDue)}
+          </div>
+        </div>
+
+        {/* IMAGE 2: Client Info & Invoice Meta Table */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1.2fr 1fr',
+          gap: '1.5rem',
+          padding: '0.5rem 1.75rem 1rem 1.75rem',
+          fontSize: '13px',
+        }}>
           <div>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: '#737373', textTransform: 'uppercase' }}>Details of Receiver (Billed To):</span>
-            <div style={{ fontSize: '15px', fontWeight: 700, color: '#171717', marginTop: '2px' }}>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: '#171717' }}>
               {invoice.clientName}
             </div>
-            <div style={{ color: '#4B5563' }}>Place of Supply: <strong>{invoice.placeOfSupply}</strong></div>
-            <div style={{ color: '#4B5563' }}>Tax Type: {invoice.applyGst === false ? 'GST-Free (No Tax)' : (invoice.isInterState ? 'Inter-State (IGST)' : 'Intra-State (CGST+SGST)')}</div>
+            {invoice.clientGstin && (
+              <div style={{ fontSize: '12.5px', color: '#4B5563', marginTop: '2px' }}>
+                GSTIN {invoice.clientGstin}
+              </div>
+            )}
+            <div style={{ fontSize: '12.5px', color: '#171717', marginTop: '1.25rem' }}>
+              Place Of Supply: {invoice.placeOfSupply || 'Maharashtra (27)'}
+            </div>
           </div>
-          <div>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: '#737373', textTransform: 'uppercase' }}>Project Reference:</span>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: '#171717', marginTop: '2px' }}>{invoice.projectTitle}</div>
-            <div style={{ color: '#4B5563', marginTop: '4px' }}>Reverse Charge: <strong>No</strong></div>
-            <div style={{ color: '#4B5563' }}>Status: <strong>{invoice.status}</strong></div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <table style={{ borderCollapse: 'collapse', fontSize: '12.5px' }}>
+              <tbody>
+                <tr>
+                  <td style={{ padding: '2px 14px 2px 0', color: '#6B7280', textAlign: 'left' }}>Invoice#</td>
+                  <td style={{ padding: '2px 0', fontWeight: 600, color: '#171717', textAlign: 'right', fontFamily: 'monospace' }}>
+                    {invoice.invoiceNumber}
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '2px 14px 2px 0', color: '#6B7280', textAlign: 'left' }}>Invoice Date</td>
+                  <td style={{ padding: '2px 0', fontWeight: 500, color: '#171717', textAlign: 'right' }}>
+                    {formatDateDDMMYYYY(invoice.invoiceDate)}
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '2px 14px 2px 0', color: '#6B7280', textAlign: 'left' }}>Terms</td>
+                  <td style={{ padding: '2px 0', fontWeight: 500, color: '#171717', textAlign: 'right' }}>
+                    {invoice.paymentTerms || settings.defaultPaymentTerms || 'Net 15'}
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '2px 14px 2px 0', color: '#6B7280', textAlign: 'left' }}>Due Date</td>
+                  <td style={{ padding: '2px 0', fontWeight: 500, color: '#171717', textAlign: 'right' }}>
+                    {formatDateDDMMYYYY(invoice.dueDate)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
+        {/* Pricing edit bar (non-printed) */}
         {editingPricing && (
-          <div className="no-print" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '1rem', flexWrap: 'wrap' }}>
+          <div className="no-print" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', margin: '0 1.75rem 1rem 1.75rem', padding: '0.75rem', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '6px', flexWrap: 'wrap' }}>
             <input
               type="search"
               value={packageSearchTerm}
@@ -414,140 +495,197 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           </div>
         )}
 
-        {/* Invoice Items Table */}
-        <table className="invoice-items-table" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '12.5px', textAlign: 'left' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#F9FAFB', borderTop: '1px solid #171717', borderBottom: '1px solid #171717' }}>
-              <th style={{ width: '4%', padding: '8px' }}>#</th>
-              <th style={{ width: '30%', padding: '8px' }}>Description of Service</th>
-              <th style={{ width: '9%', padding: '8px' }}>SAC</th>
-              <th style={{ width: '9%', padding: '8px', textAlign: 'center' }}>Qty / Unit</th>
-              <th style={{ width: '14%', padding: '8px', textAlign: 'right' }}>Rate (₹)</th>
-              <th style={{ width: '14%', padding: '8px', textAlign: 'right' }}>Taxable (₹)</th>
-              <th style={{ width: '7%', padding: '8px', textAlign: 'center' }}>GST</th>
-              <th style={{ width: '13%', padding: '8px', textAlign: 'right' }}>Amount (₹)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(editingPricing ? draftLines : invoice.lineItems).map((item, idx) => (
-              <tr key={item.id} style={{ borderBottom: '1px solid #E5E7EB' }}>
-                <td style={{ padding: '8px', color: '#737373' }}>{idx + 1}</td>
-                <td style={{ padding: '8px' }}>
-                  <div style={{ fontWeight: 600 }}>{item.serviceName}</div>
-                  <div style={{ fontSize: '11.5px', color: '#737373' }}>{item.description}</div>
-                </td>
-                <td style={{ padding: '8px', fontFamily: 'monospace' }}>{item.sacCode}</td>
-                <td style={{ padding: '8px', textAlign: 'center' }}>{item.quantity} {item.billingUnit}</td>
-                <td style={{ padding: '8px', textAlign: 'right' }}>
-                  {editingPricing ? (
-                    <PricingSelector
-                      item={item}
-                      onSelect={(tier) => updateDraftLine(idx, tier)}
-                      onCustomChange={(value) => updateDraftLine(idx, 'CUSTOM', value)}
-                    />
-                  ) : formatINR(item.negotiatedUnitPrice)}
-                </td>
-                <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>
-                  {formatINR(item.taxableAmount)}
-                </td>
-                <td style={{ padding: '8px', textAlign: 'center' }}>{invoice.applyGst !== false ? `${item.gstRate}%` : '—'}</td>
-                <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>
-                  {formatINR(item.lineTotal)}
-                </td>
+        {/* IMAGE 2: Invoice Items Table with Cyan/Blue headers */}
+        <div style={{ padding: '0 1.75rem' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #D1D5DB' }}>
+                <th style={{ width: '5%', padding: '10px 4px', textAlign: 'left', color: '#2B7DA8', fontWeight: 700, fontSize: '11px' }}>#</th>
+                <th style={{ width: '40%', padding: '10px 8px', textAlign: 'left', color: '#2B7DA8', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase' }}>ITEM & DESCRIPTION</th>
+                <th style={{ width: '14%', padding: '10px 8px', textAlign: 'center', color: '#2B7DA8', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase' }}>HSN/SAC</th>
+                {invoice.applyGst !== false && (
+                  !invoice.isInterState ? (
+                    <>
+                      <th style={{ width: '12%', padding: '10px 8px', textAlign: 'right', color: '#2B7DA8', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase' }}>CGST</th>
+                      <th style={{ width: '12%', padding: '10px 8px', textAlign: 'right', color: '#2B7DA8', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase' }}>SGST</th>
+                    </>
+                  ) : (
+                    <th style={{ width: '24%', padding: '10px 8px', textAlign: 'right', color: '#2B7DA8', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase' }}>IGST</th>
+                  )
+                )}
+                <th style={{ width: '17%', padding: '10px 8px', textAlign: 'right', color: '#2B7DA8', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase' }}>AMOUNT</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {(editingPricing ? draftLines : invoice.lineItems).map((item, idx) => {
+                const itemTaxable = item.taxableAmount || (item.quantity * item.negotiatedUnitPrice);
+                const itemRate = item.gstRate ?? 18;
+                const itemTotalTax = (invoice.applyGst !== false && draftApplyGst) ? Math.round(itemTaxable * (itemRate / 100)) : 0;
+                const itemHalfTax = Math.round(itemTotalTax / 2);
+                const itemOtherHalfTax = itemTotalTax - itemHalfTax;
+                return (
+                  <tr key={item.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                    <td style={{ padding: '12px 4px', verticalAlign: 'top', color: '#171717' }}>{idx + 1}</td>
+                    <td style={{ padding: '12px 8px', verticalAlign: 'top' }}>
+                      <div style={{ fontWeight: 600, color: '#171717', fontSize: '13px' }}>{item.serviceName}</div>
+                      {item.description && (
+                        <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '2px', whiteSpace: 'pre-line' }}>{item.description}</div>
+                      )}
+                    </td>
+                    <td style={{ padding: '12px 8px', verticalAlign: 'top', textAlign: 'center', fontFamily: 'monospace', color: '#334155' }}>
+                      {item.sacCode || '998311'}
+                    </td>
+                    {invoice.applyGst !== false && (
+                      !invoice.isInterState ? (
+                        <>
+                          <td style={{ padding: '12px 8px', verticalAlign: 'top', textAlign: 'right' }}>
+                            <div style={{ fontWeight: 500, color: '#171717' }}>{formatNumberWithDecimals(itemHalfTax)}</div>
+                            <div style={{ fontSize: '10.5px', color: '#64748B', marginTop: '1px' }}>{itemRate / 2}%</div>
+                          </td>
+                          <td style={{ padding: '12px 8px', verticalAlign: 'top', textAlign: 'right' }}>
+                            <div style={{ fontWeight: 500, color: '#171717' }}>{formatNumberWithDecimals(itemOtherHalfTax)}</div>
+                            <div style={{ fontSize: '10.5px', color: '#64748B', marginTop: '1px' }}>{itemRate / 2}%</div>
+                          </td>
+                        </>
+                      ) : (
+                        <td style={{ padding: '12px 8px', verticalAlign: 'top', textAlign: 'right' }}>
+                          <div style={{ fontWeight: 500, color: '#171717' }}>{formatNumberWithDecimals(itemTotalTax)}</div>
+                          <div style={{ fontSize: '10.5px', color: '#64748B', marginTop: '1px' }}>{itemRate}%</div>
+                        </td>
+                      )
+                    )}
+                    <td style={{ padding: '12px 8px', verticalAlign: 'top', textAlign: 'right' }}>
+                      <div style={{ fontWeight: 600, color: '#171717' }}>{formatNumberWithDecimals(itemTaxable)}</div>
+                      <div style={{ fontSize: '10.5px', color: '#64748B', marginTop: '2px' }}>
+                        {item.quantity}.00 {item.billingUnit || '1'} x {formatNumberWithDecimals(item.negotiatedUnitPrice)}
+                      </div>
+                      {editingPricing && (
+                        <div className="no-print" style={{ marginTop: '4px' }}>
+                          <PricingSelector
+                            item={item}
+                            onSelect={(tier) => updateDraftLine(idx, tier)}
+                            onCustomChange={(value) => updateDraftLine(idx, 'CUSTOM', value)}
+                          />
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
 
-        {/* Summary & Amount in Words */}
-        <div className="print-avoid-break" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div style={{ maxWidth: '420px', fontSize: '12px', color: '#4B5563' }}>
-            <span style={{ fontWeight: 700, textTransform: 'uppercase', color: '#171717' }}>Total in Words:</span>
-            <div style={{ fontWeight: 700, color: '#171717', fontSize: '12.5px', marginTop: '2px' }}>
-              {numberToWordsINR(invoice.grandTotal)}
-            </div>
-            <p style={{ marginTop: '8px', fontSize: '11.5px', color: '#737373' }}>
-              {settings.invoiceStatutoryNote}
-            </p>
-          </div>
-
-          <div style={{ width: '280px', display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '13px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Taxable Subtotal:</span>
-              <span style={{ fontWeight: 600 }}>{formatINR(invoice.documentDiscountAmount > 0 ? (invoice.totalLineSubtotal || (invoice.totalTaxableAmount + invoice.documentDiscountAmount)) : invoice.totalTaxableAmount)}</span>
-            </div>
-            {invoice.documentDiscountAmount > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#DC2626' }}>
-                <span>Discount Amount:</span>
-                <span style={{ fontWeight: 600 }}>- {formatINR(invoice.documentDiscountAmount)}</span>
-              </div>
-            )}
-            {invoice.applyGst !== false ? (
-              !invoice.isInterState ? (
-                <>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
-                    <span>CGST (9%):</span>
-                    <span>{formatINR(invoice.cgstAmount)}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563' }}>
-                    <span>SGST (9%):</span>
-                    <span>{formatINR(invoice.sgstAmount)}</span>
-                  </div>
-                </>
-              ) : (
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2563EB' }}>
-                  <span>IGST (18%):</span>
-                  <span>{formatINR(invoice.igstAmount)}</span>
+        {/* IMAGE 2: Shaded Light Blue Container with Thanks note and Summary */}
+        <div style={{ padding: '0 1.75rem', marginTop: '1.25rem' }}>
+          <div style={{
+            backgroundColor: '#F0F6F9',
+            borderRadius: '4px',
+            padding: '1.25rem 1.5rem',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            gap: '2rem',
+            printColorAdjust: 'exact',
+            WebkitPrintColorAdjust: 'exact',
+          }}>
+            <div style={{ fontSize: '13px', color: '#171717', maxWidth: '380px' }}>
+              <div style={{ fontWeight: 500 }}>Thanks for your business.</div>
+              {invoice.notes && (
+                <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '8px', lineHeight: '1.5' }}>
+                  {invoice.notes}
                 </div>
-              )
-            ) : null}
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #171717', paddingTop: '6px', marginTop: '4px' }}>
-              <span style={{ fontWeight: 800 }}>Invoice Total:</span>
-              <span style={{ fontWeight: 800, fontSize: '16px' }}>{formatINR(invoice.grandTotal)}</span>
+              )}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#15803D', fontWeight: 600, fontSize: '12.5px' }}>
-              <span>Amount Paid:</span>
-              <span>{formatINR(invoice.amountPaid)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: invoice.balanceDue > 0 ? '#DC2626' : '#15803D', fontWeight: 700, fontSize: '13.5px', borderTop: '1px dashed #E5E7EB', paddingTop: '4px' }}>
-              <span>Balance Due:</span>
-              <span>{formatINR(invoice.balanceDue)}</span>
+
+            <div style={{ width: '270px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
+                <tbody>
+                  <tr>
+                    <td style={{ padding: '3px 0', color: '#475569' }}>Sub Total</td>
+                    <td style={{ padding: '3px 0', textAlign: 'right', fontWeight: 600, color: '#171717' }}>
+                      {formatNumberWithDecimals(invoice.documentDiscountAmount > 0 ? (invoice.totalLineSubtotal || (invoice.totalTaxableAmount + invoice.documentDiscountAmount)) : invoice.totalTaxableAmount)}
+                    </td>
+                  </tr>
+                  {invoice.documentDiscountAmount > 0 && (
+                    <tr>
+                      <td style={{ padding: '3px 0', color: '#DC2626' }}>Discount</td>
+                      <td style={{ padding: '3px 0', textAlign: 'right', fontWeight: 600, color: '#DC2626' }}>
+                        - {formatNumberWithDecimals(invoice.documentDiscountAmount)}
+                      </td>
+                    </tr>
+                  )}
+                  {invoice.applyGst !== false && (
+                    !invoice.isInterState ? (
+                      <>
+                        <tr>
+                          <td style={{ padding: '3px 0', color: '#475569' }}>CGST9 (9%)</td>
+                          <td style={{ padding: '3px 0', textAlign: 'right', fontWeight: 600, color: '#171717' }}>
+                            {formatNumberWithDecimals(invoice.cgstAmount)}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: '3px 0', color: '#475569' }}>SGST9 (9%)</td>
+                          <td style={{ padding: '3px 0', textAlign: 'right', fontWeight: 600, color: '#171717' }}>
+                            {formatNumberWithDecimals(invoice.sgstAmount)}
+                          </td>
+                        </tr>
+                      </>
+                    ) : (
+                      <tr>
+                        <td style={{ padding: '3px 0', color: '#475569' }}>IGST18 (18%)</td>
+                        <td style={{ padding: '3px 0', textAlign: 'right', fontWeight: 600, color: '#171717' }}>
+                          {formatNumberWithDecimals(invoice.igstAmount)}
+                        </td>
+                      </tr>
+                    )
+                  )}
+                  <tr style={{ borderTop: '1px solid #CBD5E1' }}>
+                    <td style={{ padding: '6px 0 3px 0', fontWeight: 700, color: '#171717' }}>Total</td>
+                    <td style={{ padding: '6px 0 3px 0', textAlign: 'right', fontWeight: 800, color: '#171717', fontSize: '13.5px' }}>
+                      {formatNumberWithDecimals(invoice.grandTotal)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '4px 0', color: '#2B7DA8', fontWeight: 700, fontSize: '14px' }}>Balance Due</td>
+                    <td style={{ padding: '4px 0', textAlign: 'right', color: '#2B7DA8', fontWeight: 800, fontSize: '16px' }}>
+                      {formatNumberWithDecimals(invoice.balanceDue)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
 
-        {/* Payment History Table (if any) */}
-        {invoicePayments.length > 0 && (
-          <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '1rem' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: '#737373', textTransform: 'uppercase' }}>
-              Settlement History
-            </span>
-            <table className="payment-history-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginTop: '4px' }}>
-              <thead>
-                <tr style={{ background: '#F9FAFB' }}>
-                  <th style={{ padding: '4px 8px', textAlign: 'left' }}>Receipt #</th>
-                  <th style={{ padding: '4px 8px', textAlign: 'left' }}>Date</th>
-                  <th style={{ padding: '4px 8px', textAlign: 'left' }}>Mode</th>
-                  <th style={{ padding: '4px 8px', textAlign: 'left' }}>Reference / UTR</th>
-                  <th style={{ padding: '4px 8px', textAlign: 'right' }}>Amount Paid</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoicePayments.map(p => (
-                  <tr key={p.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
-                    <td style={{ padding: '4px 8px', fontWeight: 600 }}>{p.paymentNumber}</td>
-                    <td style={{ padding: '4px 8px' }}>{formatDate(p.paymentDate)}</td>
-                    <td style={{ padding: '4px 8px' }}>{p.paymentMode}</td>
-                    <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>{p.transactionReference}</td>
-                    <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600, color: '#15803D' }}>{formatINR(p.amount)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* IMAGE 2: Total in Words (Right Aligned, Bold Italic) */}
+        <div style={{
+          padding: '1rem 1.75rem 0.5rem 1.75rem',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          fontSize: '12.5px',
+        }}>
+          <div>
+            <span style={{ color: '#171717' }}>Total In Words: </span>
+            <strong style={{ fontStyle: 'italic', color: '#171717' }}>
+              {formatIndianRupeesInWords(invoice.grandTotal)}
+            </strong>
           </div>
-        )}
+        </div>
 
-        {/* Bank Settlement Section (Optional, only fields with values; omit entirely if empty) */}
+        {/* IMAGE 2: Authorized Signature */}
+        <div style={{
+          padding: '2.5rem 1.75rem 1.5rem 1.75rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-end',
+        }}>
+          <div style={{ fontSize: '12.5px', color: '#475569' }}>
+            Authorized Signature <span style={{ display: 'inline-block', width: '220px', borderBottom: '1.5px solid #171717', marginLeft: '6px', verticalAlign: 'middle' }}></span>
+          </div>
+        </div>
+
+        {/* Optional Bank Settlement Details */}
         {(() => {
           const rawBank = invoice.bankDetails || {};
           const bName = rawBank.bankName?.trim() || '';
@@ -559,32 +697,26 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
           if (hasBank) {
             return (
-              <div className="print-avoid-break" style={{
-                borderTop: '1px solid #E5E7EB',
-                paddingTop: '1rem',
-                fontSize: '12px',
-                color: '#4B5563',
-                lineHeight: '1.6'
+              <div style={{
+                borderTop: '1px solid #E2E8F0',
+                padding: '1rem 1.75rem',
+                fontSize: '11.5px',
+                color: '#64748B',
+                lineHeight: '1.6',
+                backgroundColor: '#FAFAFA'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <strong style={{ color: '#171717' }}>Electronic Bank Settlement Details:</strong>
-                    {bName && <div>Bank: {bName}</div>}
-                    {bHolder && <div>Account Name: {bHolder}</div>}
-                    {bNum && <div>Current A/C No: {bNum}</div>}
-                    {(bIfsc || bUpi) && (
-                      <div>
-                        {[bIfsc ? `IFSC Code: ${bIfsc}` : null, bUpi ? `UPI: ${bUpi}` : null].filter(Boolean).join(' | ')}
-                      </div>
-                    )}
+                    <strong style={{ color: '#171717' }}>Electronic Bank Settlement: </strong>
+                    {[bName ? `Bank: ${bName}` : null, bHolder ? `A/C Name: ${bHolder}` : null, bNum ? `A/C No: ${bNum}` : null, bIfsc ? `IFSC: ${bIfsc}` : null, bUpi ? `UPI: ${bUpi}` : null].filter(Boolean).join(' | ')}
                   </div>
                   <button
                     type="button"
                     onClick={openEditBankModal}
                     className="no-print"
                     style={{
-                      padding: '0.35rem 0.65rem',
-                      fontSize: '11.5px',
+                      padding: '0.25rem 0.6rem',
+                      fontSize: '11px',
                       fontWeight: 600,
                       color: '#2563EB',
                       border: '1px solid #BFDBFE',
@@ -593,38 +725,47 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                       cursor: 'pointer'
                     }}
                   >
-                    Edit Bank Details
+                    Edit Bank
                   </button>
                 </div>
               </div>
             );
           }
 
-          return (
-            <div className="no-print" style={{ borderTop: '1px solid #E5E7EB', paddingTop: '0.75rem', marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '12px', color: '#737373', fontStyle: 'italic' }}>
-                No bank details included on this invoice.
-              </span>
-              <button
-                type="button"
-                onClick={openEditBankModal}
-                style={{
-                  padding: '0.35rem 0.65rem',
-                  fontSize: '11.5px',
-                  fontWeight: 600,
-                  color: '#2563EB',
-                  border: '1px solid #BFDBFE',
-                  backgroundColor: '#EFF6FF',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-              >
-                + Add Bank Details
-              </button>
-            </div>
-          );
+          return null;
         })()}
-      </LetterheadLayout>
+
+        {/* Settlement History Table (if payments recorded) */}
+        {invoicePayments.length > 0 && (
+          <div style={{ borderTop: '1px solid #E2E8F0', padding: '1rem 1.75rem', backgroundColor: '#FAFAFA' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>
+              Recorded Settlement Receipts
+            </span>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px', marginTop: '4px' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #E2E8F0', color: '#64748B' }}>
+                  <th style={{ padding: '4px 6px', textAlign: 'left' }}>Receipt #</th>
+                  <th style={{ padding: '4px 6px', textAlign: 'left' }}>Date</th>
+                  <th style={{ padding: '4px 6px', textAlign: 'left' }}>Mode</th>
+                  <th style={{ padding: '4px 6px', textAlign: 'left' }}>Reference / UTR</th>
+                  <th style={{ padding: '4px 6px', textAlign: 'right' }}>Amount Paid</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoicePayments.map(p => (
+                  <tr key={p.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                    <td style={{ padding: '4px 6px', fontWeight: 600 }}>{p.paymentNumber}</td>
+                    <td style={{ padding: '4px 6px' }}>{formatDateDDMMYYYY(p.paymentDate)}</td>
+                    <td style={{ padding: '4px 6px' }}>{p.paymentMode}</td>
+                    <td style={{ padding: '4px 6px', fontFamily: 'monospace' }}>{p.transactionReference}</td>
+                    <td style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 600, color: '#16A34A' }}>{formatINR(p.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* Record Payment Modal */}
       <Modal

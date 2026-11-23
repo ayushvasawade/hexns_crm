@@ -7,16 +7,13 @@ import {
   ArrowLeft, 
   Plus, 
   Trash2, 
-  Save, 
   Check, 
   FileText,
-  Building,
-  CheckCircle2,
   X
 } from 'lucide-react';
 import { useCrm } from '../../../context/CrmContext';
 import { DocumentLineItem } from '../../../types/crm';
-import { formatINR, formatDate, numberToWordsINR } from '../../../lib/formatters';
+import { formatINR } from '../../../lib/formatters';
 import { PricingSelector } from '../../../components/document/PricingSelector';
 import { ServiceAutocomplete } from '../../../components/document/ServiceAutocomplete';
 
