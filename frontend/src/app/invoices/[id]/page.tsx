@@ -23,10 +23,14 @@ import { PricingSelector } from '../../../components/document/PricingSelector';
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
-  const { invoices, packages, payments, settings, recordPayment, updateInvoice } = useCrm();
+  const { invoices, packages, payments, settings, clients, recordPayment, updateInvoice } = useCrm();
 
   const decodedId = decodeURIComponent(resolvedParams.id).toLowerCase();
   const invoice = invoices.find(inv => inv.id.toLowerCase() === decodedId || inv.invoiceNumber?.toLowerCase() === decodedId);
+  const client = clients.find(c => c.id === invoice?.clientId);
+  const clientAddress = (invoice?.clientAddress || client?.registeredAddress || '').trim();
+  const clientPhone = (invoice?.clientPhone || client?.mobile || client?.officialPhone || '').trim();
+  const clientBrand = (invoice?.brandName || client?.brandTradeName || '').trim();
   const [editingPricing, setEditingPricing] = useState(false);
   const [draftLines, setDraftLines] = useState(invoice?.lineItems || []);
   const [draftApplyGst, setDraftApplyGst] = useState(invoice?.applyGst !== false);
@@ -224,7 +228,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             type="button"
             onClick={() => {
               try {
-                generateInvoicePDF(invoice, settings);
+                generateInvoicePDF(invoice, settings, client);
               } catch (error: unknown) {
                 const message = error instanceof Error ? error.message : 'Failed to generate invoice PDF';
                 alert(message);
@@ -399,12 +403,27 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             <div style={{ fontSize: '16px', fontWeight: 700, color: '#171717' }}>
               {invoice.clientName}
             </div>
+            {clientBrand && clientBrand.toLowerCase() !== invoice.clientName.toLowerCase() && (
+              <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '1px' }}>
+                Brand: {clientBrand}
+              </div>
+            )}
+            {clientAddress && (
+              <div style={{ fontSize: '12.5px', color: '#4B5563', marginTop: '3px', whiteSpace: 'pre-line' }}>
+                {clientAddress}
+              </div>
+            )}
+            {clientPhone && (
+              <div style={{ fontSize: '12px', color: '#4B5563', marginTop: '2px' }}>
+                Contact: {clientPhone}
+              </div>
+            )}
             {invoice.clientGstin && (
-              <div style={{ fontSize: '12.5px', color: '#4B5563', marginTop: '2px' }}>
+              <div style={{ fontSize: '12.5px', color: '#4B5563', marginTop: '3px' }}>
                 GSTIN {invoice.clientGstin}
               </div>
             )}
-            <div style={{ fontSize: '12.5px', color: '#171717', marginTop: '1.25rem' }}>
+            <div style={{ fontSize: '12.5px', color: '#171717', marginTop: clientAddress || clientPhone ? '0.75rem' : '1.25rem' }}>
               Place Of Supply: {invoice.placeOfSupply || 'Maharashtra (27)'}
             </div>
           </div>

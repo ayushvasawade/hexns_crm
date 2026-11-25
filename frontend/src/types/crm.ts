@@ -150,6 +150,9 @@ export interface Quotation {
   clientId: string;
   clientName: string;
   clientGstin?: string;
+  clientAddress?: string;
+  clientPhone?: string;
+  brandName?: string;
   projectTitle: string;
   quotationDate: string;
   validUntil: string;
@@ -189,6 +192,9 @@ export interface Invoice {
   clientId: string;
   clientName: string;
   clientGstin?: string;
+  clientAddress?: string;
+  clientPhone?: string;
+  brandName?: string;
   projectTitle: string;
   invoiceDate: string;
   dueDate: string;

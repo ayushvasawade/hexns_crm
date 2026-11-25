@@ -105,10 +105,18 @@ export function generateQuotationPDF(quotation: Quotation, _settings: CompanySet
   doc.text(`Date: ${formatDate(quotation.quotationDate)}`, 140, 41);
   doc.text(`Valid Until: ${formatDate(quotation.validUntil)}`, 140, 46);
 
-  // Client Details Box (Display GSTIN if present, omit if not; Place of Supply and Tax Type omitted)
+  // Client Details Box (Display GSTIN, Address, Contact if present, omit if blank)
   const rawGstin = (client?.gstin || quotation.clientGstin || '').trim();
   const clientGstin = rawGstin.toLowerCase() === 'unregistered' ? '' : rawGstin;
-  const boxHeight = clientGstin ? 27 : 24;
+  const clientAddress = (quotation.clientAddress || client?.registeredAddress || '').trim();
+  const clientPhone = (quotation.clientPhone || client?.mobile || client?.officialPhone || '').trim();
+  const brandName = (quotation.brandName || client?.brandTradeName || '').trim();
+
+  let boxHeight = 22;
+  if (brandName && brandName.toLowerCase() !== quotation.clientName.toLowerCase()) boxHeight += 4;
+  if (clientAddress) boxHeight += 5;
+  if (clientPhone) boxHeight += 4;
+  if (clientGstin) boxHeight += 5;
 
   doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
   doc.roundedRect(14, 40, 110, boxHeight, 2, 2, 'F');
@@ -117,16 +125,36 @@ export function generateQuotationPDF(quotation: Quotation, _settings: CompanySet
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.text("QUOTED TO:", 18, 46);
   doc.text(quotation.clientName, 18, 51);
-  doc.setFont(PDF_FONT, 'normal');
-  doc.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
-  doc.text(`Project: ${quotation.projectTitle}`, 18, 56);
+  let qClientY = 56;
+  if (brandName && brandName.toLowerCase() !== quotation.clientName.toLowerCase()) {
+    doc.setFont(PDF_FONT, 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
+    doc.text(`Brand: ${brandName}`, 18, qClientY);
+    qClientY += 4.5;
+  }
+  if (clientAddress) {
+    doc.setFont(PDF_FONT, 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
+    const splitAddr = doc.splitTextToSize(clientAddress, 95);
+    doc.text(splitAddr, 18, qClientY);
+    qClientY += (splitAddr.length * 3.8);
+  }
+  if (clientPhone) {
+    doc.setFont(PDF_FONT, 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
+    doc.text(`Contact: ${clientPhone}`, 18, qClientY);
+    qClientY += 4.5;
+  }
   if (clientGstin) {
     doc.setFont(PDF_FONT, 'bold');
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text("GSTIN: ", 18, 62);
+    doc.text("GSTIN: ", 18, qClientY);
     doc.setFont(PDF_FONT, 'normal');
     doc.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
-    doc.text(clientGstin, 31, 62);
+    doc.text(clientGstin, 31, qClientY);
   }
 
   // Table of Items
@@ -250,7 +278,7 @@ export function generateQuotationPDF(quotation: Quotation, _settings: CompanySet
   doc.save(`${quotation.quotationNumber.replace(/[^a-zA-Z0-9-]/g, '_')}.pdf`);
 }
 
-export function generateInvoicePDF(invoice: Invoice, settings: CompanySettings) {
+export function generateInvoicePDF(invoice: Invoice, settings: CompanySettings, client?: Client) {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -333,13 +361,41 @@ export function generateInvoicePDF(invoice: Invoice, settings: CompanySettings) 
   doc.setTextColor(textDark[0], textDark[1], textDark[2]);
   doc.text(invoice.clientName, margin, 62);
 
-  let clientY = 67;
+  let clientY = 66;
+  const clientBrand = (invoice.brandName || client?.brandTradeName || '').trim();
+  if (clientBrand && clientBrand.toLowerCase() !== invoice.clientName.toLowerCase()) {
+    doc.setFont(PDF_FONT, 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
+    doc.text(`Brand: ${clientBrand}`, margin, clientY);
+    clientY += 4;
+  }
+
+  const clientAddress = (invoice.clientAddress || client?.registeredAddress || '').trim();
+  if (clientAddress) {
+    doc.setFont(PDF_FONT, 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(75, 85, 99);
+    const splitAddr = doc.splitTextToSize(clientAddress, 75);
+    doc.text(splitAddr, margin, clientY);
+    clientY += (splitAddr.length * 3.8);
+  }
+
+  const clientPhone = (invoice.clientPhone || client?.mobile || client?.officialPhone || '').trim();
+  if (clientPhone) {
+    doc.setFont(PDF_FONT, 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(75, 85, 99);
+    doc.text(`Contact: ${clientPhone}`, margin, clientY);
+    clientY += 4;
+  }
+
   if (invoice.clientGstin && invoice.clientGstin.toLowerCase() !== 'unregistered') {
     doc.setFont(PDF_FONT, 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
     doc.text(`GSTIN ${invoice.clientGstin}`, margin, clientY);
-    clientY += 5;
+    clientY += 4.5;
   }
 
   doc.setFont(PDF_FONT, 'normal');
@@ -441,7 +497,7 @@ export function generateInvoicePDF(invoice: Invoice, settings: CompanySettings) 
   });
 
   autoTable(doc, {
-    startY: 83,
+    startY: Math.max(83, clientY + 6),
     head: [tableHeaders],
     body: tableRows,
     theme: 'plain',

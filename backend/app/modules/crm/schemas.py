@@ -30,20 +30,20 @@ class Page(ApiSchema):
 
 class ClientBase(ApiSchema):
     legal_entity_name: str
-    brand_trade_name: str
-    primary_contact_person: str
+    brand_trade_name: str = ""
+    primary_contact_person: str = ""
     official_phone: str = ""
     mobile: str = ""
-    billing_email: EmailStr
-    registered_address: str
-    city: str
-    state: str
-    pin_code: str
+    billing_email: str = ""
+    registered_address: str = ""
+    city: str = ""
+    state: str = "Maharashtra"
+    pin_code: str = ""
     gst_registered: bool = False
     gstin: str | None = None
     pan: str | None = None
-    state_code: str | None = None
-    place_of_supply: str
+    state_code: str | None = "27"
+    place_of_supply: str = "Maharashtra (27)"
     reverse_charge: bool = False
     tax_exempt: bool = False
     tax_exempt_reason: str | None = None

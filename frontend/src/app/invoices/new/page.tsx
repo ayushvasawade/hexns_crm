@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
@@ -9,13 +9,14 @@ import {
   Trash2, 
   Check, 
   FileText,
-  X
+  UserPlus
 } from 'lucide-react';
 import { useCrm } from '../../../context/CrmContext';
 import { DocumentLineItem } from '../../../types/crm';
 import { formatINR } from '../../../lib/formatters';
 import { PricingSelector } from '../../../components/document/PricingSelector';
 import { ServiceAutocomplete } from '../../../components/document/ServiceAutocomplete';
+import { Modal } from '../../../components/ui/Modal';
 
 const SERVICE_CATEGORIES = [
   'Other / Custom Services',
@@ -51,12 +52,29 @@ const BILLING_UNITS = [
 
 export default function NewInvoicePage() {
   const router = useRouter();
-  const { clients, services, packages, quotations, settings, isLoading, addInvoice, addClient, addService } = useCrm();
+  const { clients, services, packages, quotations, settings, isLoading, addInvoice, addClient, updateClient, addService } = useCrm();
 
   const [selectedClientId, setSelectedClientId] = useState(clients[0]?.id || '');
   const [clientSearchTerm, setClientSearchTerm] = useState('');
   const [selectedQuoteId, setSelectedQuoteId] = useState('');
   const [selectedPackageId, setSelectedPackageId] = useState('');
+
+  // Client Address & Contact No State
+  const [clientContactNo, setClientContactNo] = useState('');
+  const [clientAddress, setClientAddress] = useState('');
+  const [clientBrand, setClientBrand] = useState('');
+
+  // Add Client Modal State
+  const [showAddClientModal, setShowAddClientModal] = useState(false);
+  const [modalClientName, setModalClientName] = useState('');
+  const [modalBrand, setModalBrand] = useState('');
+  const [modalContact, setModalContact] = useState('');
+  const [modalMobile, setModalMobile] = useState('');
+  const [modalAddress, setModalAddress] = useState('');
+  const [modalCity, setModalCity] = useState('');
+  const [modalEmail, setModalEmail] = useState('');
+  const [modalGstin, setModalGstin] = useState('');
+  const [modalState, setModalState] = useState('Maharashtra');
 
   // Discount state
   const [discountType, setDiscountType] = useState<'' | 'percentage' | 'fixed'>('');
@@ -98,6 +116,18 @@ export default function NewInvoicePage() {
   const client = clients.find(c => c.id === selectedClientId) || null;
   const isInterState = client ? client.stateCode !== '27' : false;
 
+  useEffect(() => {
+    if (client) {
+      setClientContactNo(client.mobile || client.officialPhone || '');
+      setClientAddress(client.registeredAddress || '');
+      setClientBrand(client.brandTradeName || '');
+    } else {
+      setClientContactNo('');
+      setClientAddress('');
+      setClientBrand('');
+    }
+  }, [selectedClientId, client]);
+
   const handleQuickAddClient = async (nameToUse?: string) => {
     const rawName = (nameToUse || clientSearchTerm).trim();
     if (!rawName) return;
@@ -106,15 +136,15 @@ export default function NewInvoicePage() {
       const newClient = await addClient({
         legalEntityName: rawName,
         brandTradeName: rawName,
-        primaryContactPerson: 'Primary Contact',
-        officialPhone: '+91 22 2800 0000',
-        mobile: '+91 98000 00000',
-        billingEmail: `accounts@${rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'client'}.com`,
-        registeredAddress: 'Commercial Suite, Mumbai',
-        city: 'Mumbai',
+        primaryContactPerson: '',
+        officialPhone: '',
+        mobile: '',
+        billingEmail: '',
+        registeredAddress: '',
+        city: '',
         state: 'Maharashtra',
         stateCode: '27',
-        pinCode: '400001',
+        pinCode: '',
         gstRegistered: false,
         gstin: '',
         pan: '',
@@ -124,12 +154,60 @@ export default function NewInvoicePage() {
         clientSegment: 'One-Off',
         industryCategory: 'General Business',
         assignedAccountLead: 'Vikram Malhotra',
-        defaultPaymentTerms: '50% Advance + 50% Before Delivery',
+        defaultPaymentTerms: 'Net 15',
         status: 'Active'
       });
 
       setSelectedClientId(newClient.id);
       setClientSearchTerm('');
+    } catch (err: any) {
+      alert(err?.message || 'Failed to create client');
+    }
+  };
+
+  const handleModalSaveClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!modalClientName.trim()) return;
+
+    try {
+      const newClient = await addClient({
+        legalEntityName: modalClientName.trim(),
+        brandTradeName: modalBrand.trim() || modalClientName.trim(),
+        primaryContactPerson: modalContact.trim(),
+        officialPhone: '',
+        mobile: modalMobile.trim(),
+        billingEmail: modalEmail.trim(),
+        registeredAddress: modalAddress.trim(),
+        city: modalCity.trim(),
+        state: modalState,
+        stateCode: modalState === 'Maharashtra' ? '27' : '29',
+        pinCode: '',
+        gstRegistered: Boolean(modalGstin.trim()),
+        gstin: modalGstin.trim(),
+        pan: modalGstin.trim().length >= 12 ? modalGstin.trim().substring(2, 12) : '',
+        placeOfSupply: `${modalState} (${modalState === 'Maharashtra' ? '27' : '29'})`,
+        reverseCharge: false,
+        taxExempt: false,
+        clientSegment: 'One-Off',
+        industryCategory: 'General Business',
+        assignedAccountLead: 'Vikram Malhotra',
+        defaultPaymentTerms: 'Net 15',
+        status: 'Active'
+      });
+
+      setSelectedClientId(newClient.id);
+      setClientContactNo(modalMobile.trim());
+      setClientAddress(modalAddress.trim());
+      setClientBrand(modalBrand.trim() || modalClientName.trim());
+      setShowAddClientModal(false);
+      setModalClientName('');
+      setModalBrand('');
+      setModalContact('');
+      setModalMobile('');
+      setModalAddress('');
+      setModalCity('');
+      setModalEmail('');
+      setModalGstin('');
     } catch (err: any) {
       alert(err?.message || 'Failed to create client');
     }
@@ -487,15 +565,15 @@ export default function NewInvoicePage() {
           const newC = await addClient({
             legalEntityName: rawName,
             brandTradeName: rawName,
-            primaryContactPerson: 'Primary Contact',
-            officialPhone: '+91 22 2800 0000',
-            mobile: '+91 98000 00000',
-            billingEmail: `accounts@${rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'client'}.com`,
-            registeredAddress: 'Commercial Suite, Mumbai',
-            city: 'Mumbai',
+            primaryContactPerson: '',
+            officialPhone: '',
+            mobile: clientContactNo || '',
+            billingEmail: '',
+            registeredAddress: clientAddress || '',
+            city: '',
             state: 'Maharashtra',
             stateCode: '27',
-            pinCode: '400001',
+            pinCode: '',
             gstRegistered: false,
             gstin: '',
             pan: '',
@@ -505,7 +583,7 @@ export default function NewInvoicePage() {
             clientSegment: 'One-Off',
             industryCategory: 'General Business',
             assignedAccountLead: 'Vikram Malhotra',
-            defaultPaymentTerms: '50% Advance + 50% Before Delivery',
+            defaultPaymentTerms: 'Net 15',
             status: 'Active'
           });
           setSelectedClientId(newC.id);
@@ -574,6 +652,9 @@ export default function NewInvoicePage() {
         quotationId: selectedQuoteId || undefined,
         clientId: clientToUse.id,
         clientName: clientToUse.legalEntityName,
+        clientAddress: clientAddress.trim(),
+        clientPhone: clientContactNo.trim(),
+        brandName: clientBrand.trim() || clientToUse.brandTradeName,
         projectTitle,
         invoiceDate,
         dueDate,
@@ -604,6 +685,22 @@ export default function NewInvoicePage() {
           upiVpa: upiVpa.trim(),
         }
       });
+
+      if (clientToUse && (
+        clientContactNo.trim() !== (clientToUse.mobile || '') ||
+        clientAddress.trim() !== (clientToUse.registeredAddress || '') ||
+        clientBrand.trim() !== (clientToUse.brandTradeName || '')
+      )) {
+        try {
+          await updateClient(clientToUse.id, {
+            registeredAddress: clientAddress.trim(),
+            mobile: clientContactNo.trim(),
+            brandTradeName: clientBrand.trim() || clientToUse.legalEntityName,
+          });
+        } catch (e) {
+          console.error('Failed to sync client profile:', e);
+        }
+      }
 
       router.push(`/invoices/${newInv.id}`);
     } catch (err: any) {
@@ -672,58 +769,144 @@ export default function NewInvoicePage() {
           </select>
         </div>
 
-        {/* Invoice Meta */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
-          <div>
-            <label style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>Client Entity *</label>
-            {client ? (
-              <div style={{
-                marginTop: '4px',
-                padding: '0.45rem 0.65rem',
-                border: '1px solid #E5E7EB',
-                borderRadius: '4px',
-                backgroundColor: '#F9FAFB',
+        {/* Client Selection & Information Card */}
+        <div style={{ backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '8px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Client / Brand Information
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setModalClientName(clientSearchTerm.trim());
+                setModalBrand(clientSearchTerm.trim());
+                setShowAddClientModal(true);
+              }}
+              style={{
+                padding: '0.35rem 0.65rem',
+                border: '1px solid #D1D5DB',
+                borderRadius: '5px',
+                fontSize: '11.5px',
+                fontWeight: 600,
+                backgroundColor: '#FFFFFF',
+                color: '#171717',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between'
-              }}>
-                <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#171717', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {client.legalEntityName}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedClientId('')}
-                  style={{ border: 'none', background: 'transparent', color: '#6B7280', cursor: 'pointer', padding: '2px' }}
-                  title="Change client"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
-                <input 
-                  type="text"
-                  placeholder="Type client name..."
-                  value={clientSearchTerm}
-                  onChange={(e) => setClientSearchTerm(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleQuickAddClient();
-                    }
-                  }}
-                  style={{ width: '100%', padding: '0.45rem', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12.5px' }}
-                />
-                <button
-                  type="button"
-                  onClick={() => handleQuickAddClient()}
-                  style={{ padding: '0.45rem 0.65rem', backgroundColor: '#171717', color: '#FFFFFF', borderRadius: '4px', fontSize: '11.5px', fontWeight: 600, whiteSpace: 'nowrap' }}
-                >
-                  Add
-                </button>
-              </div>
-            )}
+                gap: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              <UserPlus size={13} />
+              <span>Add New Client</span>
+            </button>
           </div>
+
+          {client ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', fontSize: '13px' }}>
+              <div>
+                <span style={{ fontSize: '11px', color: '#6B7280', fontWeight: 600, textTransform: 'uppercase' }}>Billing Entity & Brand</span>
+                <div style={{ fontWeight: 700, fontSize: '14px', color: '#171717', marginTop: '2px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>{client.legalEntityName}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedClientId('')}
+                    style={{ border: 'none', background: 'transparent', color: '#2563EB', cursor: 'pointer', fontSize: '11.5px', fontWeight: 600, textDecoration: 'underline' }}
+                  >
+                    Change Client
+                  </button>
+                </div>
+                <div style={{ marginTop: '6px' }}>
+                  <label style={{ fontSize: '11px', color: '#6B7280', display: 'block' }}>Brand Name:</label>
+                  <input
+                    type="text"
+                    value={clientBrand}
+                    onChange={(e) => setClientBrand(e.target.value)}
+                    placeholder="Brand Name"
+                    style={{ width: '100%', padding: '0.35rem 0.5rem', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', marginTop: '2px' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <span style={{ fontSize: '11px', color: '#6B7280', fontWeight: 600, textTransform: 'uppercase' }}>Contact Number</span>
+                <input
+                  type="text"
+                  value={clientContactNo}
+                  onChange={(e) => setClientContactNo(e.target.value)}
+                  placeholder="Contact No / Phone (leave blank if none)"
+                  style={{ width: '100%', padding: '0.35rem 0.5rem', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', marginTop: '2px' }}
+                />
+                <div style={{ marginTop: '8px' }}>
+                  <span style={{ fontSize: '11px', color: '#6B7280', fontWeight: 600, textTransform: 'uppercase' }}>GST & Place of Supply</span>
+                  <div style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '12px', marginTop: '1px' }}>
+                    {client.gstin || 'Unregistered'}
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: client.stateCode === '27' ? '#15803D' : '#2563EB', fontWeight: 600 }}>
+                    {client.placeOfSupply}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <span style={{ fontSize: '11px', color: '#6B7280', fontWeight: 600, textTransform: 'uppercase' }}>Address (Leave blank if none)</span>
+                <textarea
+                  value={clientAddress}
+                  onChange={(e) => setClientAddress(e.target.value)}
+                  placeholder="Client registered address (leave blank if none)"
+                  rows={3}
+                  style={{ width: '100%', padding: '0.35rem 0.5rem', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', marginTop: '2px', resize: 'vertical' }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '1rem', alignItems: 'center' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>Select Client Entity</label>
+                <select
+                  value={selectedClientId}
+                  onChange={(e) => setSelectedClientId(e.target.value)}
+                  style={{ width: '100%', padding: '0.45rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '4px', fontSize: '12.5px' }}
+                >
+                  <option value="">-- Choose Existing Client --</option>
+                  {clients.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.legalEntityName} {c.brandTradeName ? `(${c.brandTradeName})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>Or Quick Add by Name</label>
+                <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                  <input
+                    type="text"
+                    placeholder="Type client name..."
+                    value={clientSearchTerm}
+                    onChange={(e) => setClientSearchTerm(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleQuickAddClient();
+                      }
+                    }}
+                    style={{ width: '100%', padding: '0.45rem', border: '1px solid #E5E7EB', borderRadius: '4px', fontSize: '12.5px' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleQuickAddClient()}
+                    style={{ padding: '0.45rem 0.75rem', backgroundColor: '#171717', color: '#FFFFFF', borderRadius: '4px', fontSize: '11.5px', fontWeight: 600, whiteSpace: 'nowrap', cursor: 'pointer' }}
+                  >
+                    Quick Add
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Invoice Meta */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
           <div>
             <label style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>Invoice Number *</label>
             <input 
@@ -1353,6 +1536,139 @@ export default function NewInvoicePage() {
           </div>
         </div>
       </div>
+
+      {/* Add Client Entity Modal */}
+      <Modal
+        isOpen={showAddClientModal}
+        onClose={() => setShowAddClientModal(false)}
+        title="Add Client Entity"
+        subtitle="The client will be created and selected for this invoice."
+      >
+        <form onSubmit={handleModalSaveClient} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div>
+            <label style={{ fontSize: '12px', fontWeight: 600 }}>Legal Entity Name *</label>
+            <input 
+              type="text" 
+              required
+              placeholder="e.g. Acme Consumer Retail LLP"
+              value={modalClientName}
+              onChange={(e) => setModalClientName(e.target.value)}
+              style={{ width: '100%', padding: '0.5rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '4px' }}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 600 }}>Brand Name (Optional)</label>
+              <input 
+                type="text" 
+                placeholder="Acme"
+                value={modalBrand}
+                onChange={(e) => setModalBrand(e.target.value)}
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '4px' }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 600 }}>Contact Person</label>
+              <input 
+                type="text" 
+                placeholder="Primary Contact"
+                value={modalContact}
+                onChange={(e) => setModalContact(e.target.value)}
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '4px' }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 600 }}>Contact / Mobile Phone (Optional - leave blank if none)</label>
+              <input 
+                type="text" 
+                placeholder="+91 98200 00000"
+                value={modalMobile}
+                onChange={(e) => setModalMobile(e.target.value)}
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '4px' }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 600 }}>State (Place of Supply)</label>
+              <select 
+                value={modalState}
+                onChange={(e) => setModalState(e.target.value)}
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '4px' }}
+              >
+                <option value="Maharashtra">Maharashtra (27 - Intra-State)</option>
+                <option value="Karnataka">Karnataka (29 - Inter-State)</option>
+                <option value="Gujarat">Gujarat (24 - Inter-State)</option>
+                <option value="Delhi">Delhi (07 - Inter-State)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize: '12px', fontWeight: 600 }}>Registered Address (Optional - leave blank if none)</label>
+            <textarea 
+              rows={2}
+              placeholder="Enter client address if available (otherwise leave blank)"
+              value={modalAddress}
+              onChange={(e) => setModalAddress(e.target.value)}
+              style={{ width: '100%', padding: '0.5rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '4px', resize: 'vertical' }}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 600 }}>City (Optional)</label>
+              <input 
+                type="text" 
+                placeholder="Kolhapur / Mumbai"
+                value={modalCity}
+                onChange={(e) => setModalCity(e.target.value)}
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '4px' }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 600 }}>GSTIN (Optional)</label>
+              <input 
+                type="text" 
+                maxLength={15}
+                placeholder="27AABCA1234M1Z5"
+                value={modalGstin}
+                onChange={(e) => setModalGstin(e.target.value.toUpperCase())}
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '4px' }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize: '12px', fontWeight: 600 }}>Billing Email (Optional)</label>
+            <input 
+              type="email" 
+              placeholder="billing@client.com"
+              value={modalEmail}
+              onChange={(e) => setModalEmail(e.target.value)}
+              style={{ width: '100%', padding: '0.5rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '4px' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
+            <button 
+              type="button" 
+              onClick={() => setShowAddClientModal(false)}
+              style={{ padding: '0.5rem 1rem', border: '1px solid #E5E7EB', borderRadius: '4px', background: '#FFFFFF' }}
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit" 
+              style={{ padding: '0.5rem 1.25rem', backgroundColor: '#171717', color: '#FFFFFF', borderRadius: '4px', fontWeight: 600 }}
+            >
+              Save & Select Client
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

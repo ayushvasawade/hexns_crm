@@ -389,10 +389,9 @@ export default function ClientsPage() {
               />
             </div>
             <div>
-              <label style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>Mobile Phone *</label>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>Mobile Phone</label>
               <input 
                 type="text" 
-                required
                 placeholder="+91 98200 11223"
                 value={formData.mobile}
                 onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
@@ -400,10 +399,9 @@ export default function ClientsPage() {
               />
             </div>
             <div>
-              <label style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>Billing Email *</label>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>Billing Email</label>
               <input 
                 type="email" 
-                required
                 placeholder="accounts@apex.com"
                 value={formData.billingEmail}
                 onChange={(e) => setFormData({ ...formData, billingEmail: e.target.value })}
@@ -595,7 +593,7 @@ export default function ClientsPage() {
                 <div style={{ gridColumn: 'span 2' }}>
                   <span style={{ fontSize: '11.5px', color: '#737373', fontWeight: 600, textTransform: 'uppercase' }}>Registered Address</span>
                   <div style={{ marginTop: '2px' }}>
-                    {selectedClient.registeredAddress}, {selectedClient.city}, {selectedClient.state} — {selectedClient.pinCode}
+                    {[selectedClient.registeredAddress, selectedClient.city, selectedClient.state].filter(Boolean).join(', ') + (selectedClient.pinCode ? ` — ${selectedClient.pinCode}` : '') || 'None (Blank)'}
                   </div>
                 </div>
               </div>

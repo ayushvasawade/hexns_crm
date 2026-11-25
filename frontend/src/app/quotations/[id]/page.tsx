@@ -26,6 +26,9 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
   const client = clients.find(c => c.id === quote?.clientId);
   const rawGstin = (client?.gstin || quote?.clientGstin || '').trim();
   const clientGstin = rawGstin.toLowerCase() === 'unregistered' ? '' : rawGstin;
+  const clientAddress = (quote?.clientAddress || client?.registeredAddress || '').trim();
+  const clientPhone = (quote?.clientPhone || client?.mobile || client?.officialPhone || '').trim();
+  const clientBrand = (quote?.brandName || client?.brandTradeName || '').trim();
   const [editingPricing, setEditingPricing] = useState(false);
   const [draftLines, setDraftLines] = useState(quote?.lineItems || []);
   const [draftApplyGst, setDraftApplyGst] = useState(quote?.applyGst !== false);
@@ -232,6 +235,21 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
             <div style={{ fontSize: '15px', fontWeight: 700, color: '#171717', marginTop: '2px' }}>
               {quote.clientName}
             </div>
+            {clientBrand && clientBrand.toLowerCase() !== quote.clientName.toLowerCase() && (
+              <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '1px' }}>
+                Brand: {clientBrand}
+              </div>
+            )}
+            {clientAddress && (
+              <div style={{ color: '#4B5563', marginTop: '3px', whiteSpace: 'pre-line' }}>
+                {clientAddress}
+              </div>
+            )}
+            {clientPhone && (
+              <div style={{ color: '#4B5563', marginTop: '2px' }}>
+                Contact: {clientPhone}
+              </div>
+            )}
             {clientGstin ? (
               <div style={{ color: '#4B5563', marginTop: '4px' }}>
                 <strong>GSTIN:</strong> {clientGstin}

@@ -257,6 +257,10 @@ export function adaptQuotation(raw: any, clientMap: Record<string, Client>): Quo
   const rawGstin = (client?.gstin || raw.clientGstin || raw.client_gstin || '').trim();
   const clientGstin = rawGstin.toLowerCase() === 'unregistered' ? '' : rawGstin;
 
+  const clientAddress = raw.clientAddress || raw.client_address || client?.registeredAddress || '';
+  const clientPhone = raw.clientPhone || raw.client_phone || client?.mobile || client?.officialPhone || '';
+  const brandName = raw.brandName || raw.brand_name || client?.brandTradeName || '';
+
   return {
     id: raw.id,
     quotationNumber: raw.quotationNumber || raw.quotation_number || '',
@@ -264,6 +268,9 @@ export function adaptQuotation(raw: any, clientMap: Record<string, Client>): Quo
     clientId,
     clientName,
     clientGstin,
+    clientAddress,
+    clientPhone,
+    brandName,
     projectTitle: raw.projectTitle || raw.project_title || '',
     quotationDate: raw.quotationDate || raw.quotation_date || '',
     validUntil: raw.validUntil || raw.valid_until || '',
@@ -337,6 +344,9 @@ export function adaptInvoice(raw: any, clientMap: Record<string, Client>, quoteM
   const quotationNumber = quote?.quotationNumber || undefined;
 
   const rawBank = raw.bankDetails || raw.bank_details || {};
+  const clientAddress = raw.clientAddress || raw.client_address || rawBank.client_address || client?.registeredAddress || '';
+  const clientPhone = raw.clientPhone || raw.client_phone || rawBank.client_phone || client?.mobile || client?.officialPhone || '';
+  const brandName = raw.brandName || raw.brand_name || rawBank.brand_name || client?.brandTradeName || '';
   const bankDetails: BankDetails = {
     bankName: rawBank.bankName || rawBank.bank_name || '',
     accountHolder: rawBank.accountHolder || rawBank.account_holder || '',
@@ -354,6 +364,9 @@ export function adaptInvoice(raw: any, clientMap: Record<string, Client>, quoteM
     clientId,
     clientName,
     clientGstin,
+    clientAddress,
+    clientPhone,
+    brandName,
     projectTitle: raw.projectTitle || raw.project_title || '',
     invoiceDate: raw.invoiceDate || raw.invoice_date || '',
     dueDate: raw.dueDate || raw.due_date || '',
@@ -402,6 +415,9 @@ export function toInvoiceCreatePayload(data: Omit<Invoice, 'id' | 'createdAt'>):
       ifsc: rawBank.ifsc?.trim() || '',
       branch: rawBank.branch?.trim() || '',
       upiVpa: (rawBank.upiVpa || (rawBank as any).upiId)?.trim() || '',
+      client_address: data.clientAddress || '',
+      client_phone: data.clientPhone || '',
+      brand_name: data.brandName || '',
     },
     status: data.status || 'Draft',
     line_items: data.lineItems.map(toLineItemPayload),

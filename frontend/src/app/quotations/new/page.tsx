@@ -86,7 +86,7 @@ export default function QuotationBuilderPage() {
 
   const router = useRouter();
 
-  const { clients, services, packages, settings, isLoading, addQuotation, addClient, addService } = useCrm();
+  const { clients, services, packages, settings, isLoading, addQuotation, addClient, updateClient, addService } = useCrm();
 
 
 
@@ -161,6 +161,10 @@ export default function QuotationBuilderPage() {
 
   const [modalEmail, setModalEmail] = useState('');
 
+  const [modalAddress, setModalAddress] = useState('');
+
+  const [modalCity, setModalCity] = useState('');
+
   const [modalGstin, setModalGstin] = useState('');
 
   const [modalState, setModalState] = useState('Maharashtra');
@@ -174,6 +178,22 @@ export default function QuotationBuilderPage() {
     return clients.find(c => c.id === selectedClientId) || null;
 
   }, [clients, selectedClientId]);
+
+  const [selectedClientAddress, setSelectedClientAddress] = useState('');
+  const [selectedClientPhone, setSelectedClientPhone] = useState('');
+  const [selectedClientBrand, setSelectedClientBrand] = useState('');
+
+  React.useEffect(() => {
+    if (selectedClient) {
+      setSelectedClientAddress(selectedClient.registeredAddress || '');
+      setSelectedClientPhone(selectedClient.mobile || selectedClient.officialPhone || '');
+      setSelectedClientBrand(selectedClient.brandTradeName || '');
+    } else {
+      setSelectedClientAddress('');
+      setSelectedClientPhone('');
+      setSelectedClientBrand('');
+    }
+  }, [selectedClient]);
 
 
 
@@ -240,23 +260,23 @@ export default function QuotationBuilderPage() {
 
         brandTradeName: rawName,
 
-        primaryContactPerson: 'Primary Contact',
+        primaryContactPerson: '',
 
-        officialPhone: '+91 22 2800 0000',
+        officialPhone: '',
 
-        mobile: '+91 98000 00000',
+        mobile: '',
 
-        billingEmail: `accounts@${rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'client'}.com`,
+        billingEmail: '',
 
-        registeredAddress: 'Commercial Suite, Mumbai',
+        registeredAddress: '',
 
-        city: 'Mumbai',
+        city: '',
 
         state: 'Maharashtra',
 
         stateCode: '27',
 
-        pinCode: '400001',
+        pinCode: '',
 
         gstRegistered: false,
 
@@ -903,23 +923,23 @@ export default function QuotationBuilderPage() {
 
             brandTradeName: rawName,
 
-            primaryContactPerson: 'Primary Contact',
+            primaryContactPerson: '',
 
-            officialPhone: '+91 22 2800 0000',
+            officialPhone: '',
 
-            mobile: '+91 98000 00000',
+            mobile: selectedClientPhone || '',
 
-            billingEmail: `accounts@${rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'client'}.com`,
+            billingEmail: '',
 
-            registeredAddress: 'Commercial Suite, Mumbai',
+            registeredAddress: selectedClientAddress || '',
 
-            city: 'Mumbai',
+            city: '',
 
             state: 'Maharashtra',
 
             stateCode: '27',
 
-            pinCode: '400001',
+            pinCode: '',
 
             gstRegistered: false,
 
@@ -1031,6 +1051,12 @@ export default function QuotationBuilderPage() {
 
         clientName: clientToUse.legalEntityName,
 
+        clientAddress: selectedClientAddress.trim(),
+
+        clientPhone: selectedClientPhone.trim(),
+
+        brandName: selectedClientBrand.trim() || clientToUse.brandTradeName,
+
         projectTitle,
 
         quotationDate,
@@ -1087,6 +1113,22 @@ export default function QuotationBuilderPage() {
 
 
 
+      if (clientToUse && (
+        selectedClientAddress.trim() !== (clientToUse.registeredAddress || '') ||
+        selectedClientPhone.trim() !== (clientToUse.mobile || clientToUse.officialPhone || '') ||
+        selectedClientBrand.trim() !== (clientToUse.brandTradeName || '')
+      )) {
+        try {
+          await updateClient(clientToUse.id, {
+            registeredAddress: selectedClientAddress.trim(),
+            mobile: selectedClientPhone.trim(),
+            brandTradeName: selectedClientBrand.trim() || clientToUse.legalEntityName,
+          });
+        } catch (e) {
+          console.warn('Failed to sync client profile:', e);
+        }
+      }
+
       router.push(`/quotations/${saved.id}`);
 
     } catch (err: any) {
@@ -1117,27 +1159,27 @@ export default function QuotationBuilderPage() {
 
         brandTradeName: modalBrand || modalClientName,
 
-        primaryContactPerson: modalContact || "Account Lead",
+        primaryContactPerson: modalContact || "",
 
-        officialPhone: "+91 22 2800 0000",
+        officialPhone: "",
 
-        mobile: modalMobile || "+91 98000 00000",
+        mobile: modalMobile || "",
 
-        billingEmail: modalEmail || "billing@client.com",
+        billingEmail: modalEmail || "",
 
-        registeredAddress: "Andheri Commercial Hub",
+        registeredAddress: modalAddress || "",
 
-        city: "Mumbai",
+        city: modalCity || "",
 
         state: modalState,
 
-        pinCode: "400069",
+        pinCode: "",
 
         gstRegistered: Boolean(modalGstin),
 
-        gstin: modalGstin || "27AABCT9999M1Z8",
+        gstin: modalGstin || "",
 
-        pan: modalGstin ? modalGstin.substring(2, 12) : "AABCT9999M",
+        pan: modalGstin && modalGstin.length >= 12 ? modalGstin.substring(2, 12) : "",
 
         stateCode: modalState === 'Maharashtra' ? '27' : '29',
 
@@ -1909,35 +1951,56 @@ export default function QuotationBuilderPage() {
 
                 <div>
 
-                  <span style={{ fontSize: '11px', color: '#737373', fontWeight: 600, textTransform: 'uppercase' }}>Billing Entity</span>
+                  <span style={{ fontSize: '11px', color: '#737373', fontWeight: 600, textTransform: 'uppercase' }}>Billing Entity & Brand</span>
 
                   <div style={{ fontWeight: 700, fontSize: '14px', color: '#171717', marginTop: '2px' }}>{selectedClient.legalEntityName}</div>
 
-                  <div style={{ fontSize: '12px', color: '#4B5563' }}>Brand: {selectedClient.brandTradeName}</div>
-
-                </div>
-
-                <div>
-
-                  <span style={{ fontSize: '11px', color: '#737373', fontWeight: 600, textTransform: 'uppercase' }}>GST & Place of Supply</span>
-
-                  <div style={{ fontFamily: 'monospace', fontWeight: 600, marginTop: '2px' }}>{selectedClient.gstin || 'Unregistered'}</div>
-
-                  <div style={{ fontSize: '12px', color: selectedClient.stateCode === '27' ? '#15803D' : '#2563EB', fontWeight: 600 }}>
-
-                    {selectedClient.placeOfSupply} ({selectedClient.stateCode === '27' ? 'Intra-State CGST+SGST' : 'Inter-State IGST'})
-
+                  <div style={{ marginTop: '6px' }}>
+                    <label style={{ fontSize: '11px', color: '#6B7280', display: 'block' }}>Brand Name:</label>
+                    <input 
+                      type="text"
+                      value={selectedClientBrand}
+                      onChange={(e) => setSelectedClientBrand(e.target.value)}
+                      placeholder="Brand Name"
+                      style={{ width: '100%', padding: '0.35rem 0.5rem', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', marginTop: '2px' }}
+                    />
                   </div>
 
                 </div>
 
                 <div>
 
-                  <span style={{ fontSize: '11px', color: '#737373', fontWeight: 600, textTransform: 'uppercase' }}>Contact & Terms</span>
+                  <span style={{ fontSize: '11px', color: '#737373', fontWeight: 600, textTransform: 'uppercase' }}>Contact Number</span>
 
-                  <div style={{ marginTop: '2px', fontWeight: 500 }}>{selectedClient.primaryContactPerson} ({selectedClient.mobile})</div>
+                  <input 
+                    type="text"
+                    value={selectedClientPhone}
+                    onChange={(e) => setSelectedClientPhone(e.target.value)}
+                    placeholder="Contact No (leave blank if none)"
+                    style={{ width: '100%', padding: '0.35rem 0.5rem', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', marginTop: '2px' }}
+                  />
 
-                  <div style={{ fontSize: '12px', color: '#4B5563' }}>{selectedClient.defaultPaymentTerms}</div>
+                  <div style={{ marginTop: '8px' }}>
+                    <span style={{ fontSize: '11px', color: '#737373', fontWeight: 600, textTransform: 'uppercase' }}>GST & Place of Supply</span>
+                    <div style={{ fontFamily: 'monospace', fontWeight: 600, marginTop: '2px' }}>{selectedClient.gstin || 'Unregistered'}</div>
+                    <div style={{ fontSize: '12px', color: selectedClient.stateCode === '27' ? '#15803D' : '#2563EB', fontWeight: 600 }}>
+                      {selectedClient.placeOfSupply}
+                    </div>
+                  </div>
+
+                </div>
+
+                <div>
+
+                  <span style={{ fontSize: '11px', color: '#737373', fontWeight: 600, textTransform: 'uppercase' }}>Address (Leave blank if none)</span>
+
+                  <textarea 
+                    value={selectedClientAddress}
+                    onChange={(e) => setSelectedClientAddress(e.target.value)}
+                    placeholder="Client address (leave blank if none)"
+                    rows={3}
+                    style={{ width: '100%', padding: '0.35rem 0.5rem', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', marginTop: '2px', resize: 'vertical' }}
+                  />
 
                 </div>
 
@@ -3583,15 +3646,21 @@ export default function QuotationBuilderPage() {
 
                 </div>
 
-                <div style={{ color: '#4B5563' }}>Brand: {selectedClient?.brandTradeName || selectedClient?.legalEntityName || 'Brand'}</div>
+                {selectedClientBrand && selectedClientBrand !== (selectedClient?.legalEntityName || clientSearchTerm) ? (
+                  <div style={{ color: '#4B5563' }}>Brand: {selectedClientBrand}</div>
+                ) : null}
 
-                <div style={{ color: '#4B5563' }}>{selectedClient?.registeredAddress || 'Registered Office'}, {selectedClient?.city || 'Mumbai'}</div>
+                {selectedClientAddress ? (
+                  <div style={{ color: '#4B5563', whiteSpace: 'pre-line' }}>{selectedClientAddress}</div>
+                ) : null}
+
+                {selectedClientPhone ? (
+                  <div style={{ color: '#4B5563' }}>Contact: {selectedClientPhone}</div>
+                ) : null}
 
                 {selectedClient?.gstin && selectedClient.gstin.toLowerCase() !== 'unregistered' ? (
                   <div style={{ color: '#4B5563' }}>GSTIN: <strong>{selectedClient.gstin}</strong></div>
                 ) : null}
-
-                <div style={{ color: '#4B5563' }}>Attn: {selectedClient?.primaryContactPerson || 'Primary Contact'} ({selectedClient?.mobile || '+91 98000 00000'})</div>
 
               </div>
 
@@ -3954,7 +4023,73 @@ export default function QuotationBuilderPage() {
 
           <div>
 
-            <label style={{ fontSize: '12px', fontWeight: 600 }}>Billing Email</label>
+            <label style={{ fontSize: '12px', fontWeight: 600 }}>Registered Address (Optional - leave blank if none)</label>
+
+            <textarea 
+
+              rows={2}
+
+              placeholder="Enter client address if available (otherwise leave blank)"
+
+              value={modalAddress}
+
+              onChange={(e) => setModalAddress(e.target.value)}
+
+              style={{ width: '100%', padding: '0.5rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '4px', resize: 'vertical' }}
+
+            />
+
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+
+            <div>
+
+              <label style={{ fontSize: '12px', fontWeight: 600 }}>City (Optional)</label>
+
+              <input 
+
+                type="text" 
+
+                placeholder="Kolhapur / Mumbai"
+
+                value={modalCity}
+
+                onChange={(e) => setModalCity(e.target.value)}
+
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '4px' }}
+
+              />
+
+            </div>
+
+            <div>
+
+              <label style={{ fontSize: '12px', fontWeight: 600 }}>GSTIN (Optional)</label>
+
+              <input 
+
+                type="text" 
+
+                maxLength={15}
+
+                placeholder="27AABCA1234M1Z5"
+
+                value={modalGstin}
+
+                onChange={(e) => setModalGstin(e.target.value.toUpperCase())}
+
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '4px' }}
+
+              />
+
+            </div>
+
+          </div>
+
+          <div>
+
+            <label style={{ fontSize: '12px', fontWeight: 600 }}>Billing Email (Optional)</label>
 
             <input 
 
@@ -3965,28 +4100,6 @@ export default function QuotationBuilderPage() {
               value={modalEmail}
 
               onChange={(e) => setModalEmail(e.target.value)}
-
-              style={{ width: '100%', padding: '0.5rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '4px' }}
-
-            />
-
-          </div>
-
-          <div>
-
-            <label style={{ fontSize: '12px', fontWeight: 600 }}>GSTIN</label>
-
-            <input 
-
-              type="text" 
-
-              maxLength={15}
-
-              placeholder="27AABCA1234M1Z5"
-
-              value={modalGstin}
-
-              onChange={(e) => setModalGstin(e.target.value.toUpperCase())}
 
               style={{ width: '100%', padding: '0.5rem', border: '1px solid #E5E7EB', borderRadius: '4px', marginTop: '4px' }}
 
